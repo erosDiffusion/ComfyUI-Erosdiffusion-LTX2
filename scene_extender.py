@@ -409,10 +409,14 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 if is_av_model and NestedTensor is not None:
                     audio_length = time_mgr.calculate_audio_latent_count(chunk_duration)
                     audio_latent = torch.zeros(
-                        [1, 128, audio_length, 1, 1],
+                        [1, 128, audio_length, 1], # 4D for Audio
                         device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
                     )
-                    input_latent = {"samples": NestedTensor((video_latent, audio_latent))}
+                    
+                    print(f"DEBUG: First Chunk - Video Shape: {video_latent.shape}, Audio Shape: {audio_latent.shape}")
+                    nt = NestedTensor((video_latent, audio_latent))
+                    print(f"DEBUG: First Chunk - NestedTensor Audio Shape: {nt.tensors[1].shape}")
+                    input_latent = {"samples": nt}
                 else:
                     input_latent = {"samples": video_latent}
                 
@@ -446,7 +450,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 if is_av_model and NestedTensor is not None:
                     audio_length = time_mgr.calculate_audio_latent_count(total_duration)
                     new_audio = torch.zeros(
-                        [1, 128, audio_length, 1, 1],
+                        [1, 128, audio_length, 1], # 4D for Audio [B, C, T, D]
                         device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
                     )
                     input_latent = {"samples": NestedTensor((new_video, new_audio))}
@@ -478,7 +482,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                     # Audio overlap frames
                     audio_overlap = time_mgr.calculate_audio_latent_count(overlap_duration)
                     amask = torch.ones(
-                        (1, 1, audio_length, 1, 1),
+                        (1, 1, audio_length, 1), # 4D for Audio Mask
                         dtype=torch.float32,
                         device=mm.intermediate_device()
                     )
@@ -487,7 +491,11 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                     # Audio doesn't have "Latent Guide" traditionally but masking works.
                     amask[:, :, :audio_overlap] = 1.0 - temporal_cond_strength
                     
-                    input_latent["noise_mask"] = NestedTensor((mask, amask))
+                    print(f"DEBUG: Mask Shape: {mask.shape}, Amask Shape: {amask.shape}")
+                    nt_mask = NestedTensor((mask, amask))
+                    print(f"DEBUG: NestedTensor Tensors Shapes: {[t.shape for t in nt_mask.tensors]}")
+                    
+                    input_latent["noise_mask"] = nt_mask
                 else:
                     input_latent["noise_mask"] = mask
                 
@@ -655,9 +663,11 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
         # Linear weights [0..1]
         alpha = torch.linspace(0, 1, overlap, device=prev.device, dtype=prev.dtype)
         
-        # Reshape alpha for broadcasting [1, 1, overlap, 1, 1]
-        # Valid for both Video [B, C, T, H, W] and Audio [B, C, T, 1, 1]
-        alpha = alpha.view(1, 1, -1, 1, 1)
+        # Reshape alpha for broadcasting
+        # Valid for Video [B, C, T, H, W] (5D) and Audio [B, C, T, D] (4D)
+        # Dynamically append 1s based on dimensions
+        shape = [1, 1, -1] + [1] * (prev.ndim - 3)
+        alpha = alpha.view(*shape)
         
         # Blend: prev_tail * (1-alpha) + next_head * alpha
         # Wait, if we are appending NEXT to PREV.
@@ -683,12 +693,13 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
     def _get_conds_from_guider(cls, guider):
         """Extract positive and negative conditioning from guider."""
         conds = None
-        if hasattr(guider, "raw_conds"):
+        # Prefer 'conds' (Current/Active) over 'original_conds' (Historical/Input)
+        if hasattr(guider, "conds"):
+            conds = guider.conds
+        elif hasattr(guider, "raw_conds"):
             conds = guider.raw_conds
         elif hasattr(guider, "original_conds"):
             conds = guider.original_conds
-        elif hasattr(guider, "conds"):
-            conds = guider.conds
             
         if conds is not None:
             if isinstance(conds, dict):
@@ -709,15 +720,8 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
              # Fallback for some clip implementations (e.g. KJ LTXV)
              conds = clip.encode_from_tokens_scheduled(tokens)
              
-             print(f"  DEBUG: _encode_prompt Fallback. Type: {type(conds)}")
-             if conds and hasattr(conds, "__getitem__") and len(conds) > 0:
-                  print(f"  DEBUG: Item 0 Type: {type(conds[0])}")
-                  if isinstance(conds[0], dict):
-                      print(f"  DEBUG: Item 0 Keys: {list(conds[0].keys())}")
-
              # If result is List of Dicts (Non-Standard), Wrap it!
              if conds and isinstance(conds, list) and len(conds) > 0 and isinstance(conds[0], dict):
-                 print("  DEBUG: Detected Dict-based conditioning. Wrapping...")
                  new_conds = []
                  for c in conds:
                      # Attempt to find tensor
@@ -732,10 +736,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                          new_conds.append([tensor, c])
                  
                  if new_conds:
-                     print(f"  DEBUG: Wrapped {len(new_conds)} items.")
                      return new_conds
-                 else:
-                     print("  DEBUG: Failed to find tensors to wrap.")
                      
              return conds
     
