@@ -266,16 +266,16 @@ def parse_scene_script(text: str) -> list[SceneChunk]:
         if line.startswith("#"):
             continue
         
-        # Parse timestamped line: [MM:SS-MM:SS] content
+        # Parse timestamped line: [MM:SS-MM:SS] or [MM:SS.mmm-MM:SS.mmm] content
         ts_match = re.match(
-            r"\[(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\]\s*(.+)",
+            r"\[(\d{1,2}):(\d{2}(?:\.\d+)?)\s*-\s*(\d{1,2}):(\d{2}(?:\.\d+)?)\]\s*(.+)",
             line
         )
         if ts_match:
             start_min = int(ts_match.group(1))
-            start_sec = int(ts_match.group(2))
+            start_sec = float(ts_match.group(2))
             end_min = int(ts_match.group(3))
-            end_sec = int(ts_match.group(4))
+            end_sec = float(ts_match.group(4))
             content = ts_match.group(5)
             
             start_time = start_min * 60 + start_sec

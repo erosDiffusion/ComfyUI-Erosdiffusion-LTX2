@@ -585,6 +585,23 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
             positive = c_pos
             negative = c_neg
 
+        # --- HANDLE EMPTY CHUNKS ---
+        if len(final_video_list) == 0:
+            print("WARNING: No chunks were processed. Returning empty latents.")
+            # Create minimal placeholder latents
+            empty_video = torch.zeros([1, 128, 1, latent_height, latent_width], device=mm.intermediate_device())
+            empty_audio = torch.zeros([1, 8, 1, 16], device=mm.intermediate_device()) if audio_vae is not None else None
+            
+            video_out = {"samples": empty_video}
+            audio_out = {"samples": empty_audio} if empty_audio is not None else {"samples": torch.zeros([1,8,1,16])}
+            
+            if is_av_model and NestedTensor is not None and empty_audio is not None:
+                combined = {"samples": NestedTensor((empty_video, empty_audio))}
+            else:
+                combined = video_out
+                
+            return io.NodeOutput(combined, video_out, audio_out, [], [])
+
         # --- BLENDING ---
         print("Generation complete. Blending chunks...")
         
@@ -626,7 +643,8 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
 
         # Output
         video_out = {"samples": full_video}
-        audio_out = {"samples": full_audio} if full_audio is not None else {"samples": torch.zeros([1,64,1,1])} # Placeholder
+        # Use correct audio latent shape: [B, 8, T, 16] where 8 is channels, 16 is freq bins
+        audio_out = {"samples": full_audio} if full_audio is not None else {"samples": torch.zeros([1,8,1,16], device=mm.intermediate_device())}
         
         if is_av_model and NestedTensor is not None and full_audio is not None:
              combined = {"samples": NestedTensor((full_video, full_audio))}
