@@ -140,12 +140,25 @@ class LTXVTimelineEditor {
         this.pixelsPerSec = 30; // Zoom level
         this.selection = { sceneId: null, frameId: null };
         this.currentUploadTarget = null;
+        this.lastParsedValue = null; // Track last synced value
 
         // Parse Widget Value
-        this.parseScript(widget.value);
+        this.syncFromWidget();
 
         // Build UI
         this.buildUI();
+    }
+
+    // Sync timeline state from widget value (called on open)
+    syncFromWidget() {
+        const currentValue = this.widget.value;
+        // Only re-parse if value actually changed
+        if (currentValue !== this.lastParsedValue) {
+            this.parseScript(currentValue);
+            this.lastParsedValue = currentValue;
+            return true; // Changed
+        }
+        return false; // No change
     }
 
     // --- PARSING & SERIALIZATION ---
@@ -351,6 +364,8 @@ class LTXVTimelineEditor {
     // --- ACTIONS ---
 
     open() {
+        // Sync from widget in case it was edited externally
+        this.syncFromWidget();
         this.overlay.style.display = "flex";
         this.render();
     }
