@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Timeline Editor</title>
+    <style>
+        :root {
+            --bg-body: #121212;
+            --bg-node: #1e1e1e;
+            --bg-overlay: #252525;
+            --text-main: #e0e0e0;
+            --text-dim: #a0a0a0;
+            --timeline-track: #333;
+            --timeline-scene: #2a2a2a;
+            --scene-selected: #3a3a3a;
+            --accent-blue: #3b82f6;
+            --accent-orange: #f97316;
+            --border-color: #404040;
+            --input-bg: #2d2d2d;
+            --cut-line: #ef4444;
+            --link-color: #4ade80;
+            /* Green for linked */
+            --unlink-color: #f87171;
+            /* Red for hard cut */
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        /* --- Node Container --- */
+        .node-container {
+            background: var(--bg-node);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 400px;
+            padding: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .node-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        input[type="number"] {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 4px 8px;
+            border-radius: 4px;
+            width: 60px;
+        }
+
+        /* Timeline Container - Hidden Scrollbar + Grab Cursor */
+        .timeline-scroll-container {
+            width: 100%;
+            overflow-x: auto;
+            background: var(--timeline-track);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            position: relative;
+            margin-bottom: 12px;
+            height: 60px;
+            cursor: grab;
+
+            /* Hide Scrollbar */
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE 10+ */
+        }
+
+        .timeline-scroll-container::-webkit-scrollbar {
+            display: none;
+            /* Chrome/Safari */
+        }
+
+        .timeline-scroll-container.grabbing {
+            cursor: grabbing;
+        }
+
+        .timeline-track {
+            height: 100%;
+            position: relative;
+            min-width: 100%;
+        }
+
+        /* --- Scene & Marker Visuals --- */
+        .scene-block {
+            position: absolute;
+            top: 2px;
+            bottom: 2px;
+            background: var(--timeline-scene);
+            border: 1px solid #444;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.1s;
+        }
+
+        .scene-block:hover {
+            background: #333;
+        }
+
+        .scene-block.selected {
+            background: var(--scene-selected);
+            border: 1px solid var(--accent-blue);
+            z-index: 5;
+        }
+
+        .scene-label {
+            font-size: 10px;
+            color: #777;
+            pointer-events: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 4px;
+            user-select: none;
+        }
+
+        .cut-handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #555;
+            cursor: ew-resize;
+            z-index: 20;
+            transform: translateX(-50%);
+        }
+
+        .cut-handle:hover {
+            background: var(--accent-blue);
+        }
+
+        .cut-handle::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: -6px;
+            right: -6px;
+        }
+
+        .middle-frame-marker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: var(--accent-orange);
+            opacity: 0.5;
+            transform: translateX(-50%);
+            z-index: 15;
+            cursor: ew-resize;
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+
+        .middle-frame-marker:hover {
+            opacity: 1;
+            background-color: #fff;
+            box-shadow: 0 0 5px var(--accent-orange);
+        }
+
+        .middle-frame-marker.selected {
+            opacity: 1;
+            background-color: #fff;
+            box-shadow: 0 0 0 1px var(--accent-orange);
+            z-index: 16;
+        }
+
+        .middle-frame-marker::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: -4px;
+            right: -4px;
+        }
+
+        /* --- Time Marker Label --- */
+        .time-label {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #eee;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 2px 5px;
+            border-radius: 3px;
+            pointer-events: none;
+            white-space: nowrap;
+            margin-top: 4px;
+            z-index: 30;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+            font-family: monospace;
+        }
+
+        .btn-primary {
+            background-color: #404040;
+            color: white;
+            border: 1px solid #555;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: #505050;
+        }
+
+        /* --- Overlay Editor --- */
+        .overlay-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .editor-modal {
+            background: var(--bg-overlay);
+            width: 90%;
+            max-width: 900px;
+            height: 85vh;
+            border-radius: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: var(--text-main);
+        }
+
+        .modal-body {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .instructions {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-blue);
+            line-height: 1.4;
+        }
+
+        .editor-timeline-area {
+            height: 100px;
+            margin-top: 10px;
+        }
+
+        .properties-panel {
+            background: #1a1a1a;
+            border: 1px solid var(--border-color);
+            padding: 16px;
+            border-radius: 6px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .properties-header {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+
+        .image-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            min-height: 150px;
+        }
+
+        /* Uploader Styles */
+        .image-uploader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            width: 110px;
+            flex-shrink: 0;
+        }
+
+        .uploader-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-align: center;
+            height: 20px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+        }
+
+        .upload-box {
+            width: 100px;
+            height: 100px;
+            border: 2px dashed #444;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            background: #222;
+            transition: border-color 0.2s;
+        }
+
+        .upload-box:hover {
+            border-color: #666;
+        }
+
+        .upload-box span {
+            font-size: 2rem;
+            color: #555;
+        }
+
+        .upload-box.highlighted {
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 5px var(--accent-orange);
+        }
+
+        .uploaded-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* Time Display */
+        .props-time {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            background: #2a2a2a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            font-family: monospace;
+        }
+
+        /* Hard Cut Toggle */
+        .link-toggle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            color: #555;
+            width: 30px;
+            flex-shrink: 0;
+            padding-top: 20px;
+            /* Align with box center */
+        }
+
+        .link-toggle .icon {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+
+        .link-toggle.linked {
+            color: var(--link-color);
+        }
+
+        .link-toggle.unlinked {
+            color: var(--unlink-color);
+        }
+
+        .link-toggle:hover {
+            opacity: 0.8;
+        }
+
+        .link-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+        }
+
+
+        textarea {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 4px;
+            resize: none;
+            height: 80px;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            outline: 1px solid var(--accent-blue);
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #555;
+            padding: 40px;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- --- Node View --- -->
+    <div class="node-container">
+        <div class="node-header">
+            <span class="node-title">Scene Timeline</span>
+        </div>
+
+        <div class="control-row">
+            <label>Duration (s):</label>
+            <input type="number" id="durationInput" value="30" min="5">
+        </div>
+
+        <div class="timeline-scroll-container" id="miniScrollContainer"
+            style="height: 40px; overflow:hidden; cursor:default;">
+            <div id="miniTrack" class="timeline-track">
+                <!-- Scenes go here -->
+            </div>
+        </div>
+
+        <button class="btn-primary" id="openEditorBtn">Open Editor</button>
+    </div>
+
+
+    <!-- --- Overlay Editor --- -->
+    <div class="overlay-backdrop" id="editorOverlay">
+        <div class="editor-modal">
+            <div class="modal-header">
+                <h2 class="modal-title" style="color: white; margin:0;">Timeline Editor</h2>
+                <button class="modal-close" id="closeEditorBtn">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="instructions">
+                    <strong>Controls:</strong><br>
+                    • <strong>Drag background</strong> to scroll/pan.<br>
+                    • <strong>Click Scene</strong> to edit. <strong>Ctrl+Click</strong> to CUT.
+                    <strong>Alt+Click</strong> to add Middle Frame.<br>
+                    • <strong>Start/End Frames</strong> are linked to adjacent scenes unless <strong>Hard Cut</strong>
+                    is enabled in properties.<br>
+                </div>
+
+                <!-- Main Editor Timeline -->
+                <div class="timeline-scroll-container editor-timeline-area" id="mainScrollContainer">
+                    <div id="mainTrack" class="timeline-track">
+                        <!-- Content rendered via JS -->
+                    </div>
+                </div>
+
+                <!-- Properties Panel -->
+                <div class="properties-panel" id="propertiesPanel">
+                    <div class="empty-state">Select a Scene or Middle Frame to edit properties</div>
+
+                    <div id="propsContent" style="display:none; width: 100%;">
+                        <div class="properties-header" id="propsHeader">Scene Properties</div>
+
+                        <!-- Dynamic Image Row -->
+                        <div class="image-row" id="imageRow">
+                            <!-- Injected via JS -->
+                        </div>
+
+                        <div style="margin-top: 15px;" id="descGroup">
+                            <label
+                                style="font-size:0.9rem; color:var(--text-dim); display:block; margin-bottom:5px;">Description
+                                / Prompt</label>
+                            <textarea id="promptInput" placeholder="Describe this scene..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Global File Input for dynamic boxes -->
+    <input type="file" id="globalFileInput" hidden accept="image/*">
+
+    <script>
+        // --- Data Model ---
+        const state = {
+            duration: 30,
+            scenes: [],
+            selection: { sceneId: null, highlightFrameId: null },
+            pixelsPerSec: 20
+        };
+
+        // --- DOM Elements ---
+        const durationInput = document.getElementById('durationInput');
+        const openEditorBtn = document.getElementById('openEditorBtn');
+        const closeEditorBtn = document.getElementById('closeEditorBtn');
+        const editorOverlay = document.getElementById('editorOverlay');
+
+        const mainScrollContainer = document.getElementById('mainScrollContainer');
+        const mainTrack = document.getElementById('mainTrack');
+        const miniTrack = document.getElementById('miniTrack');
+
+        const propsContent = document.getElementById('propsContent');
+        const emptyState = document.querySelector('.empty-state');
+        const imageRow = document.getElementById('imageRow');
+        const promptInput = document.getElementById('promptInput');
+
+        const globalFileInput = document.getElementById('globalFileInput');
+
+        let currentUploadTarget = null; // { type: 'start'|'end'|'mid', id: ... }
+
+        // --- Initialization ---
+
+        function init() {
+            // Initial Scene
+            state.scenes.push(createScene(0, state.duration));
+
+            durationInput.addEventListener('change', updateDuration);
+            openEditorBtn.addEventListener('click', () => { editorOverlay.style.display = 'flex'; render(); });
+            closeEditorBtn.addEventListener('click', () => { editorOverlay.style.display = 'none'; render(); });
+
+            promptInput.addEventListener('input', (e) => updatePrompt(e.target.value));
+            globalFileInput.addEventListener('change', handleGlobalFileUpload);
+
+            // Setup Panning Logic
+            setupPanning(mainScrollContainer);
+
+            render();
+        }
+
+        function createScene(start, end) {
+            return {
+                id: 'sc_' + Math.random().toString(36).substr(2, 6),
+                start: start,
+                end: end,
+                prompt: '',
+                startImg: null,
+                endImg: null,
+                middleFrames: [],
+                // Hard Cut Properties
+                hardCutStart: false,
+                hardCutEnd: false
+            };
+        }
+
+        function updateDuration() {
+            const newDur = parseFloat(durationInput.value) || 10;
+            state.duration = newDur;
+
+            if (state.scenes.length > 0) {
+                const last = state.scenes[state.scenes.length - 1];
+                last.end = newDur;
+                state.scenes = state.scenes.filter(s => s.start < newDur);
+                state.scenes.forEach(s => {
+                    s.middleFrames = s.middleFrames.filter(mf => mf.time >= s.start && mf.time <= s.end);
+                });
+            }
+            render();
+        }
+
+        // --- Panning Logic (Scroll by Dragging) ---
+        let didPan = false; // Flag to distinguish click vs drag
+
+        function setupPanning(container) {
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+
+            container.addEventListener('mousedown', (e) => {
+                // Prevent panning if clicking a specific control handle
+                if (e.target.classList.contains('cut-handle') ||
+                    e.target.classList.contains('middle-frame-marker')) return;
+
+                isDown = true;
+                didPan = false; // Reset pan state
+                startX = e.pageX - container.offsetLeft;
+                scrollLeft = container.scrollLeft;
+            });
+
+            container.addEventListener('mouseleave', () => {
+                isDown = false;
+                container.classList.remove('grabbing');
+            });
+
+            container.addEventListener('mouseup', () => {
+                isDown = false;
+                container.classList.remove('grabbing');
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+
+                const x = e.pageX - container.offsetLeft;
+                const walk = (x - startX);
+
+                // Add threshold for pan detection
+                if (Math.abs(walk) > 5) {
+                    didPan = true;
+                    container.classList.add('grabbing');
+                    container.scrollLeft = scrollLeft - walk;
+                }
+            });
+        }
+
+
+        // --- Interactions ---
+
+        function handleSceneClick(e, scene) {
+            // If we panned, ignore the click (it was a drag)
+            if (didPan) return;
+
+            e.stopPropagation();
+
+            if (e.ctrlKey) {
+                const rect = mainTrack.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const time = (clickX / rect.width) * state.duration;
+                // Padding ensures we don't create zero-length scenes
+                if (time > scene.start + 0.5 && time < scene.end - 0.5) {
+                    splitScene(scene, time);
+                }
+                return;
+            }
+
+            if (e.altKey) {
+                const rect = mainTrack.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const time = (clickX / rect.width) * state.duration;
+                addMiddleFrame(scene, time);
+                return;
+            }
+
+            selectScene(scene.id, null);
+        }
+
+        function handleFrameClick(e, scene, frameId) {
+            e.stopPropagation();
+            if (!didPan) selectScene(scene.id, frameId);
+        }
+
+        function splitScene(scene, cutTime) {
+            const rightScene = createScene(cutTime, scene.end);
+
+            // Logic: Left scene keeps Start Img. Right scene keeps End Img.
+            // The "Cut" point (Left End, Right Start) becomes empty/null unless hard cuts exist.
+
+            rightScene.endImg = scene.endImg; // Right scene inherits original end image
+            rightScene.hardCutEnd = scene.hardCutEnd;
+
+            // Clear the cut point images
+            scene.endImg = null;
+            rightScene.startImg = null;
+
+            // Ensure they are linked (Soft Cut) by default
+            scene.hardCutEnd = false;
+            rightScene.hardCutStart = false;
+
+            scene.end = cutTime;
+
+            // Migrate frames
+            const moveFrames = scene.middleFrames.filter(mf => mf.time > cutTime);
+            scene.middleFrames = scene.middleFrames.filter(mf => mf.time <= cutTime);
+            rightScene.middleFrames = moveFrames;
+
+            const idx = state.scenes.indexOf(scene);
+            state.scenes.splice(idx + 1, 0, rightScene);
+
+            render();
+        }
+
+        function mergeScenes(leftIndex) {
+            const left = state.scenes[leftIndex];
+            const right = state.scenes[leftIndex + 1];
+            if (!left || !right) return;
+
+            left.end = right.end;
+            left.endImg = right.endImg;
+            left.hardCutEnd = right.hardCutEnd; // Inherit right's end behavior
+            left.middleFrames = [...left.middleFrames, ...right.middleFrames];
+
+            state.scenes.splice(leftIndex + 1, 1);
+            if (state.selection.sceneId === right.id) selectScene(left.id, null);
+            render();
+        }
+
+        function addMiddleFrame(scene, time) {
+            const frame = {
+                id: 'mf_' + Math.random().toString(36).substr(2, 6),
+                time: time,
+                img: null
+            };
+            scene.middleFrames.push(frame);
+            selectScene(scene.id, frame.id);
+        }
+
+        // --- Dragging Logic (Markers) ---
+        let dragTargetIndex = -1;
+        let dragTargetFrameId = null;
+
+        function startDragCut(e, index) {
+            e.stopPropagation();
+            if (e.altKey) {
+                mergeScenes(index);
+                return;
+            }
+            dragTargetIndex = index;
+            document.body.style.cursor = 'ew-resize';
+        }
+
+        function startDragFrame(e, frameId) {
+            e.stopPropagation();
+            dragTargetFrameId = frameId;
+            const scene = state.scenes.find(s => s.middleFrames.find(mf => mf.id === frameId));
+            if (scene) selectScene(scene.id, frameId);
+            document.body.style.cursor = 'ew-resize';
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            if (dragTargetIndex === -1 && !dragTargetFrameId) return;
+
+            const rect = mainTrack.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let time = (x / rect.width) * state.duration;
+
+            if (dragTargetIndex !== -1) {
+                const leftScene = state.scenes[dragTargetIndex];
+                const rightScene = state.scenes[dragTargetIndex + 1];
+                const minTime = leftScene.start + 0.5;
+                const maxTime = rightScene.end - 0.5;
+                if (time < minTime) time = minTime;
+                if (time > maxTime) time = maxTime;
+
+                leftScene.end = time;
+                rightScene.start = time;
+            }
+            else if (dragTargetFrameId) {
+                let frameObj = null;
+                let parentScene = null;
+                for (let s of state.scenes) {
+                    const f = s.middleFrames.find(mf => mf.id === dragTargetFrameId);
+                    if (f) { frameObj = f; parentScene = s; break; }
+                }
+
+                if (frameObj && parentScene) {
+                    const padding = 0.1;
+                    if (time < parentScene.start + padding) time = parentScene.start + padding;
+                    if (time > parentScene.end - padding) time = parentScene.end - padding;
+                    frameObj.time = time;
+                }
+            }
+            render();
+        });
+
+        document.addEventListener('mouseup', () => {
+            dragTargetIndex = -1;
+            dragTargetFrameId = null;
+            document.body.style.cursor = 'default';
+        });
+
+        // --- UI Rendering ---
+
+        function render() {
+            const totalWidth = state.duration * state.pixelsPerSec;
+            mainTrack.style.width = totalWidth + 'px';
+            miniTrack.style.width = '100%';
+
+            mainTrack.innerHTML = '';
+            miniTrack.innerHTML = '';
+
+            state.scenes.forEach((scene, index) => {
+                mainTrack.appendChild(renderSceneBlock(scene, true));
+                miniTrack.appendChild(renderSceneBlock(scene, false));
+
+                scene.middleFrames.forEach(mf => {
+                    const mfEl = document.createElement('div');
+                    mfEl.className = 'middle-frame-marker';
+                    if (state.selection.highlightFrameId === mf.id) mfEl.classList.add('selected');
+
+                    const pct = (mf.time / state.duration) * 100;
+                    mfEl.style.left = pct + '%';
+
+                    const timeLabel = document.createElement('div');
+                    timeLabel.className = 'time-label';
+                    timeLabel.innerText = mf.time.toFixed(1) + 's';
+                    mfEl.appendChild(timeLabel);
+
+                    mfEl.addEventListener('mousedown', (e) => startDragFrame(e, mf.id));
+                    mfEl.addEventListener('click', (e) => handleFrameClick(e, scene, mf.id));
+                    mainTrack.appendChild(mfEl);
+                });
+
+                if (index < state.scenes.length - 1) {
+                    const handle = document.createElement('div');
+                    handle.className = 'cut-handle';
+                    const cutTime = scene.end;
+                    const pct = (cutTime / state.duration) * 100;
+                    handle.style.left = pct + '%';
+
+                    const timeLabel = document.createElement('div');
+                    timeLabel.className = 'time-label';
+                    timeLabel.innerText = cutTime.toFixed(1) + 's';
+                    handle.appendChild(timeLabel);
+
+                    handle.addEventListener('mousedown', (e) => startDragCut(e, index));
+                    mainTrack.appendChild(handle);
+                }
+            });
+
+            updatePropertiesPanel();
+        }
+
+        function renderSceneBlock(scene, isEditor) {
+            const el = document.createElement('div');
+            el.className = 'scene-block';
+
+            const startPct = (scene.start / state.duration) * 100;
+            const widthPct = ((scene.end - scene.start) / state.duration) * 100;
+
+            el.style.left = startPct + '%';
+            el.style.width = widthPct + '%';
+
+            if (isEditor) {
+                if (state.selection.sceneId === scene.id) el.classList.add('selected');
+                // Use click instead of mousedown for main scene interaction to allow drag check
+                el.addEventListener('click', (e) => handleSceneClick(e, scene));
+
+                const label = document.createElement('div');
+                label.className = 'scene-label';
+                label.innerText = scene.prompt || `Scene ${state.scenes.indexOf(scene) + 1}`;
+                el.appendChild(label);
+            }
+            return el;
+        }
+
+        // --- Properties Panel ---
+
+        function selectScene(sceneId, highlightFrameId) {
+            state.selection = { sceneId, highlightFrameId };
+            render();
+            updatePropertiesPanel();
+        }
+
+        function toggleHardCut(scene, type) {
+            const idx = state.scenes.indexOf(scene);
+
+            if (type === 'start') {
+                scene.hardCutStart = !scene.hardCutStart;
+                // Sync with prev scene end
+                if (idx > 0) {
+                    const prev = state.scenes[idx - 1];
+                    prev.hardCutEnd = scene.hardCutStart;
+                    // If switching to Soft, sync image now
+                    if (!scene.hardCutStart && prev.endImg) {
+                        scene.startImg = prev.endImg;
+                    }
+                }
+            } else {
+                scene.hardCutEnd = !scene.hardCutEnd;
+                // Sync with next scene start
+                if (idx < state.scenes.length - 1) {
+                    const next = state.scenes[idx + 1];
+                    next.hardCutStart = scene.hardCutEnd;
+                    // If switching to Soft, sync image now
+                    if (!scene.hardCutEnd && scene.endImg) {
+                        next.startImg = scene.endImg;
+                    }
+                }
+            }
+            updatePropertiesPanel();
+        }
+
+        function updatePropertiesPanel() {
+            if (!state.selection.sceneId) {
+                emptyState.style.display = 'block';
+                propsContent.style.display = 'none';
+                return;
+            }
+
+            const s = state.scenes.find(x => x.id === state.selection.sceneId);
+            if (!s) {
+                state.selection = { sceneId: null, highlightFrameId: null };
+                render();
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            propsContent.style.display = 'block';
+            promptInput.value = s.prompt || '';
+            imageRow.innerHTML = '';
+
+            const idx = state.scenes.indexOf(s);
+            const hasPrev = idx > 0;
+            const hasNext = idx < state.scenes.length - 1;
+
+            // 1. Start Frame Toggle (if applicable)
+            if (hasPrev) {
+                imageRow.appendChild(createToggle(s.hardCutStart, () => toggleHardCut(s, 'start')));
+            }
+
+            // 2. Start Frame
+            imageRow.appendChild(createImageUploader('Start Frame', s.startImg, s.start, 'start', null, false));
+
+            // 3. Middle Frames
+            const sortedMids = [...s.middleFrames].sort((a, b) => a.time - b.time);
+            sortedMids.forEach((mf, i) => {
+                const isHighlighted = state.selection.highlightFrameId === mf.id;
+                imageRow.appendChild(createImageUploader(`Frame ${i + 1}`, mf.img, mf.time, 'mid', mf.id, isHighlighted));
+            });
+
+            // 4. End Frame
+            imageRow.appendChild(createImageUploader('End Frame', s.endImg, s.end, 'end', null, false));
+
+            // 5. End Frame Toggle
+            if (hasNext) {
+                imageRow.appendChild(createToggle(s.hardCutEnd, () => toggleHardCut(s, 'end')));
+            }
+        }
+
+        function createToggle(isHardCut, onClick) {
+            const div = document.createElement('div');
+            div.className = `link-toggle ${isHardCut ? 'unlinked' : 'linked'}`;
+            div.innerHTML = `
+                <div class="icon">${isHardCut ? '⍁' : '∞'}</div>
+                <span class="link-label">${isHardCut ? 'Hard' : 'Link'}</span>
+            `;
+            div.title = isHardCut ? "Hard Cut (Images Independent)" : "Soft Cut (Images Linked)";
+            div.addEventListener('click', onClick);
+            return div;
+        }
+
+        function createImageUploader(labelText, imgUrl, timeVal, type, id, highlight) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'image-uploader';
+
+            const label = document.createElement('span');
+            label.className = 'uploader-label';
+            label.innerText = labelText;
+            wrapper.appendChild(label);
+
+            const box = document.createElement('div');
+            box.className = 'upload-box';
+            if (highlight) box.classList.add('highlighted');
+
+            if (imgUrl) {
+                const img = document.createElement('img');
+                img.src = imgUrl;
+                img.className = 'uploaded-img';
+                box.appendChild(img);
+            } else {
+                const span = document.createElement('span');
+                span.innerText = '+';
+                box.appendChild(span);
+            }
+
+            box.addEventListener('click', () => {
+                currentUploadTarget = { type, id };
+                globalFileInput.click();
+            });
+
+            box.addEventListener('dragover', e => { e.preventDefault(); box.style.borderColor = '#fff'; });
+            box.addEventListener('dragleave', e => { e.preventDefault(); box.style.borderColor = ''; });
+            box.addEventListener('drop', e => {
+                e.preventDefault(); box.style.borderColor = '';
+                if (e.dataTransfer.files[0]) {
+                    currentUploadTarget = { type, id };
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            wrapper.appendChild(box);
+
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'props-time';
+            timeDiv.innerText = timeVal.toFixed(2) + 's';
+            wrapper.appendChild(timeDiv);
+
+            return wrapper;
+        }
+
+        function updatePrompt(val) {
+            if (state.selection.sceneId) {
+                const s = state.scenes.find(x => x.id === state.selection.sceneId);
+                if (s) { s.prompt = val; render(); }
+            }
+        }
+
+        function handleGlobalFileUpload(e) {
+            if (e.target.files[0]) {
+                handleFile(e.target.files[0]);
+                e.target.value = '';
+            }
+        }
+
+        function handleFile(file) {
+            if (!state.selection.sceneId || !currentUploadTarget) return;
+
+            const s = state.scenes.find(x => x.id === state.selection.sceneId);
+            if (!s) return;
+            const idx = state.scenes.indexOf(s);
+
+            const url = URL.createObjectURL(file);
+
+            if (currentUploadTarget.type === 'start') {
+                s.startImg = url;
+                // If Linked (Hard Cut = false) and prev exists, update prev end
+                if (!s.hardCutStart && idx > 0) {
+                    state.scenes[idx - 1].endImg = url;
+                }
+            } else if (currentUploadTarget.type === 'end') {
+                s.endImg = url;
+                // If Linked and next exists, update next start
+                if (!s.hardCutEnd && idx < state.scenes.length - 1) {
+                    state.scenes[idx + 1].startImg = url;
+                }
+            } else if (currentUploadTarget.type === 'mid') {
+                const mf = s.middleFrames.find(f => f.id === currentUploadTarget.id);
+                if (mf) mf.img = url;
+            }
+            updatePropertiesPanel();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

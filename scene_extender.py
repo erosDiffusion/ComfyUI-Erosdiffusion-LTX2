@@ -49,6 +49,9 @@ from .script_parser import (
 )
 from .audio_blender import AudioOverlapBlender
 
+# Global Cache to avoid Locked Class issues
+_CACHE = {}
+
 
 def get_noise_mask(latent):
     """Helper to extract noise mask, handling nested tensors."""
@@ -110,22 +113,6 @@ class LTXVSceneExtender(io.ComfyNode):
                 
                 # === Extension Configuration ===
                 io.Float.Input(
-                    "extension_duration",
-                    default=5.0,
-                    min=0.1,
-                    max=300.0,
-                    step=0.1,
-                    tooltip="How many seconds to extend (handled internally)"
-                ),
-                io.Float.Input(
-                    "tile_duration",
-                    default=3.0,
-                    min=1.0,
-                    max=10.0,
-                    step=0.5,
-                    tooltip="Duration of each temporal chunk in seconds"
-                ),
-                io.Float.Input(
                     "overlap_duration",
                     default=1.0,
                     min=0.5,
@@ -161,7 +148,10 @@ class LTXVSceneExtender(io.ComfyNode):
                 # === Scene Script ===
                 io.String.Input(
                     "scene_script",
-                    default="",
+                    default="""[00:00-00:01] A woman with short hair speaks to camera | audio:"Hello" | first:$0 | end:$0
+[00:01-00:03] A woman with short hair turns around and speaks to camera , camera orbits around | audio:"I like this camera" | first:$0 | end:$1
+[00:03-00:06] A woman with short hair opens her arms and tilts head backwards happy | audio: "I feel free" | first:$1 | end:$2
+[00:06-00:08] A woman with short hair puts her hands in her hair | first:$2""",
                     multiline=True,
                     tooltip="""Timestamped scene script. Format:
 [MM:SS-MM:SS] Scene description | audio:spec | first:$0 | MM:SS:$1 | end:$2
@@ -213,7 +203,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 io.Int.Input("audio_overlap_frames", default=32, min=0, max=256),
                 io.Float.Input(
                     "temporal_cond_strength",
-                    default=0.5,
+                    default=1.0,
                     min=0.0,
                     max=1.0,
                     step=0.05,
@@ -247,8 +237,6 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
         noise,
         guider,
         clip,
-        extension_duration: float,
-        tile_duration: float,
         overlap_duration: float,
         video_fps: float,
         width: int,
@@ -269,6 +257,14 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
         batch_size = 1 # Hardcoded
         """Execute the scene extension."""
         
+        # Initialize Cache
+        global _CACHE
+            
+        # Clear cache if script fundamentally changed structure?
+        # But maybe limit cache size?
+        if len(_CACHE) > 50: # Arbitrary limit
+             _CACHE.clear()
+
         # Check if we have an audio-video model
         is_av_model = cls._is_av_model(model)
         
@@ -336,9 +332,34 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
 
         for i, (chunk, c_data) in enumerate(zip(chunks, chunk_data)):
             chunk_duration = chunk.end_sec - chunk.start_sec
-            latent_length = time_mgr.calculate_video_latent_count(chunk_duration)           
+            latent_length = max(1, time_mgr.calculate_video_latent_count(chunk_duration)) # Ensure at least 1           
             print(f"Processing chunk {i+1}/{len(chunks)}: [{chunk.start_sec:.1f}s - {chunk.end_sec:.1f}s] ({latent_length} latents / ~{latent_length*8} frames)")
             
+            # === CACHING CHECK ===
+            prev_context_hash = 0.0
+            if prev_latent is not None:
+                 if isinstance(prev_latent["samples"], NestedTensor):
+                      v_tens = prev_latent["samples"].tensors[0]
+                 else:
+                      v_tens = prev_latent["samples"]
+                 prev_context_hash = float(v_tens.mean().cpu()) # Simple hash
+            
+            cache_key = (
+                i, 
+                chunk.prompt,
+                chunk.duration,
+                chunk.transition_type,
+                prev_context_hash,
+                width, height
+            )
+            
+            if cache_key in _CACHE:
+                 print(f"Using Cached Chunk {i}")
+                 chunk_res = _CACHE[cache_key]
+                 final_video_list.append(chunk_res)
+                 prev_latent = chunk_res
+                 continue
+                 
             # --- Allocation & Extension Logic ---
             is_extension = (prev_latent is not None) and (chunk.transition_type != "cut")
             
@@ -357,7 +378,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 
                 # Handle AV Model
                 if is_av_model and NestedTensor is not None and audio_vae is not None:
-                    audio_len = time_mgr.calculate_audio_latent_count(chunk_duration)
+                    audio_len = max(1, time_mgr.calculate_audio_latent_count(chunk_duration))
                     
                     # Get correct dimensions from VAE
                     a_ch = getattr(audio_vae, "latent_channels", 128)
@@ -410,7 +431,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 
                 # AV Logic
                 if is_av_model and NestedTensor is not None and audio_vae is not None:
-                     audio_len = time_mgr.calculate_audio_latent_count(chunk_duration)
+                     audio_len = max(1, time_mgr.calculate_audio_latent_count(chunk_duration))
                      
                      a_ch = getattr(audio_vae, "latent_channels", 128)
                      a_freq = getattr(audio_vae, "latent_frequency_bins", 1)
@@ -555,6 +576,9 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
             
             final_video_list.append(denoised)
             prev_latent = denoised
+            
+            # Cache it
+            _CACHE[cache_key] = denoised
             
             # Keep refs for return
             positive = c_pos

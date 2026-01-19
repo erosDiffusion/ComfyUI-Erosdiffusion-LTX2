@@ -1,27 +1,23 @@
-from comfy_api.latest import io, ComfyNode
-
-class LTXVTimelineEditor(ComfyNode):
+class LTXVTimelineEditor:
     @classmethod
-    def define_schema(cls) -> io.Schema:
-        return io.Schema(
-            node_id="LTXVTimelineEditor",
-            display_name="💜 LTXV Timeline Editor",
-            category="ErosDiffusion/LTXV",
-            description="Visual editor for constructing Scene Extender scripts.",
-            inputs=[
-                io.String.Input(
-                    "script",
-                    default="(2.0s: \"Example Prompt\" { 0.0s: $0:1.0 })",
-                    multiline=True,
-                    display_mode=io.StringDisplay.textarea,
-                    tooltip="The generated script string. Use the Custom UI to edit this."
-                )
-            ],
-            outputs=[
-                io.String.Output(display_name="script_string")
-            ]
-        )
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "script": ("STRING", {
+                    "multiline": True, 
+                    "default": '(2.0s: "Describe your scene here" { 0.0s: $0:1.0 })',
+                    "tooltip": "The generated script string. Use the Custom UI (below or hidden) to visually edit chunks, prompts, and guides."
+                })
+            }
+        }
+    
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("script_string",)
+    FUNCTION = "execute"
+    CATEGORY = "ErosDiffusion/LTXV"
+    OUTPUT_NODE = False
 
-    @classmethod
-    def execute(cls, script: str) -> io.NodeOutput:
-        return io.NodeOutput(script)
+    DESCRIPTION = "A visual editor for constructing LTXV Scene Extender scripts. \nUse the Custom UI to add Timeline Chunks, set durations, transitions, and place Image Guides ($0, $1) at specific timestamps."
+
+    def execute(self, script):
+        return (script,)

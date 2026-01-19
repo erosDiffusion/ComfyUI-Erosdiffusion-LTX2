@@ -1,409 +1,315 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 
-// Styles
+// --- STYLES ---
 const STYLE = `
-.ltxv-timeline-editor {
-    background: #222;
-    padding: 10px;
-    border-radius: 8px;
-    color: #ddd;
-    font-family: sans-serif;
-    font-size: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 600px;
-    overflow-y: auto;
+.ltxv-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.8); z-index: 10000; display: none;
+    align-items: center; justify-content: center;
 }
-.ltxv-chunk {
-    background: #333;
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    position: relative;
+.ltxv-modal {
+    width: 90%; height: 80%; background: #1e1e1e; border: 1px solid #444;
+    border-radius: 8px; display: flex; flex-direction: column;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5); font-family: sans-serif; color: #ddd;
 }
-.ltxv-chunk-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.ltxv-header {
+    padding: 10px; background: #2a2a2a; border-bottom: 1px solid #444;
+    display: flex; justify-content: space-between; align-items: center;
 }
-.ltxv-chunk-title {
-    font-weight: bold;
-    color: #aaddff;
+.ltxv-body {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative;
 }
-.ltxv-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+.ltxv-timeline-area {
+    flex: 1; overflow-x: auto; overflow-y: hidden; position: relative;
+    background: #111; padding: 20px 0;
+    cursor: text; /* Click to add marker */
 }
-.ltxv-input {
-    background: #111;
-    border: 1px solid #555;
-    color: #eee;
-    padding: 4px;
-    border-radius: 4px;
+.ltxv-track {
+    height: 100%; position: relative; border-bottom: 1px solid #333;
+    min-width: 100%;
 }
-.ltxv-input-sm {
-    width: 60px;
+.ltxv-chunk-block {
+    position: absolute; top: 10px; height: 60px;
+    background: #2b3a42; border: 1px solid #4a6fa5;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #fff; overflow: hidden;
+    white-space: nowrap; cursor: pointer;
 }
-.ltxv-btn {
-    background: #444;
-    border: none;
-    color: #fff;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-.ltxv-btn:hover { background: #555; }
-.ltxv-btn-danger { background: #844; }
-.ltxv-btn-danger:hover { background: #a55; }
-.ltxv-btn-primary { background: #268; width: 100%; padding: 8px;}
-.ltxv-btn-primary:hover { background: #37a; }
+.ltxv-chunk-block.selected { background: #3a4b55; border-color: #61afef; }
 
-.ltxv-guides {
-    border-top: 1px solid #444;
-    padding-top: 5px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+.ltxv-marker {
+    position: absolute; top: 0; bottom: 0; width: 2px; background: #fff;
+    cursor: col-resize; z-index: 10;
 }
-.ltxv-guide-item {
-    background: #2a2a2a;
-    padding: 4px;
-    border-radius: 4px;
-    display: flex;
-    gap: 6px;
-    align-items: center;
+.ltxv-marker-handle {
+    position: absolute; top: -15px; left: -8px; width: 16px; height: 16px;
+    background: #fff; border-radius: 50%; border: 2px solid #555;
+    cursor: pointer; z-index: 11;
 }
-.ltxv-textarea {
-    width: 100%;
-    min-height: 60px;
-    background: #111;
-    border: 1px solid #555;
-    color: #eee;
-    resize: vertical;
+.ltxv-marker-label {
+    position: absolute; bottom: 5px; left: 5px; font-size: 10px; color: #aaa;
+    pointer-events: none;
 }
+.ltxv-marker-img-slot {
+    position: absolute; top: 80px; left: -20px; width: 40px; height: 40px;
+    background: #000; border: 1px dashed #555; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #555; cursor: pointer; z-index: 12;
+    overflow: hidden;
+}
+.ltxv-marker-img-slot:hover { border-color: #fff; color: #fff; }
+.ltxv-marker-img-slot img { width: 100%; height: 100%; object-fit: cover; }
+.ltxv-guide-id {
+    position: absolute; top: -5px; right: -5px; background: #61afef;
+    color: #000; font-size: 8px; padding: 1px 3px; border-radius: 4px;
+}
+
+.ltxv-prop-panel {
+    height: 150px; background: #222; border-top: 1px solid #444;
+    padding: 10px; display: grid; grid-template-columns: 200px 1fr; gap: 10px;
+}
+.ltxv-prop-group { display: flex; flex-direction: column; gap: 5px; }
+.ltxv-input { background: #111; border: 1px solid #555; color: #eee; padding: 4px; }
+.ltxv-textarea { flex: 1; resize: none; background: #111; border: 1px solid #555; color: #eee; }
 `;
 
 function injectStyle() {
-    if (!document.getElementById("ltxv-editor-style")) {
-        const style = document.createElement("style");
-        style.id = "ltxv-editor-style";
-        style.innerHTML = STYLE;
-        document.head.appendChild(style);
+    if (!document.getElementById("ltxv-v2-style")) {
+        const s = document.createElement("style");
+        s.id = "ltxv-v2-style";
+        s.innerHTML = STYLE;
+        document.head.appendChild(s);
     }
 }
 
-// State Management
-class TimelineState {
-    constructor(initialString, onChange) {
-        this.chunks = [];
+// --- LOGIC ---
+
+class TimelineEditorV2 {
+    constructor(widget, onChange) {
+        this.widget = widget;
         this.onChange = onChange;
-        this.parse(initialString);
+        this.chunks = []; // { duration, prompt, guides: [] }
+        this.zoom = 50; // pixels per second
+        this.selectedChunkIdx = -1;
+
+        this.parse(widget.value);
+        this.buildUI();
     }
 
     parse(str) {
-        this.chunks = [];
-        // Very basic parsing for demo. Robust parsing would be complex.
-        // We will assume if it starts with '(', we try to match regex.
-        // Or we just default to one empty chunk if empty.
-
-        // Regex to match chunks: (duration: "prompt" { ... })
-        // This is hard. We'll start fresh if parsing fails, or try simple split.
-        // For MVP, we might overwrite existing value if structure is too complex?
-        // Let's try to be non-destructive: If empty, add default.
-        if (!str || str.trim() === "") {
-            this.addChunk();
+        // Basic parser. If empty, create default.
+        if (!str || str.trim().length < 5) {
+            this.chunks = [{ duration: 2.0, prompt: "Scene 1", guides: [] }];
             return;
         }
-
-        // Simple Regex for chunks? (?: *\()([^)]+)(?:\))
-        // This breaks on nested parens in prompt.
-        // We will just initialize with one chunk if parse invalid.
-        // Or just let user build from scratch.
-    }
-
-    addChunk() {
-        this.chunks.push({
-            id: Date.now(),
-            duration: 2.0,
-            transition: "blend",
-            prompt: "",
-            guides: []
-        });
-        this.notify();
-    }
-
-    removeChunk(index) {
-        this.chunks.splice(index, 1);
-        this.notify();
-    }
-
-    updateChunk(index, key, value) {
-        this.chunks[index][key] = value;
-        this.notify();
-    }
-
-    addGuide(chunkIndex) {
-        this.chunks[chunkIndex].guides.push({
-            timeType: "start", // start, end, custom
-            timeVal: 0.0,
-            imageIdx: 0,
-            strength: 1.0
-        });
-        this.notify();
-    }
-
-    removeGuide(chunkIndex, guideIndex) {
-        this.chunks[chunkIndex].guides.splice(guideIndex, 1);
-        this.notify();
-    }
-
-    updateGuide(chunkIndex, guideIndex, key, value) {
-        this.chunks[chunkIndex].guides[guideIndex][key] = value;
-        this.notify();
-    }
-
-    notify() {
-        this.onChange(this.serialize());
+        // TODO: Implement robust parser. For now, reset if invalid or try very basic split.
+        // We will assume state is cleared for this "Prototype" rewrite.
+        // Or keep existing string if parse fails.
     }
 
     serialize() {
-        // (2.0s: "Prompt" { guides }) + ( ... )
+        let t = 0.0;
         return this.chunks.map(c => {
             let guideStr = "";
-            if (c.guides.length > 0) {
-                const gParts = c.guides.map(g => {
-                    let time = "0.0s";
-                    if (g.timeType === "start") time = "0.0s";
-                    else if (g.timeType === "end") time = "end";
-                    else time = `${g.timeVal}s`;
-                    return `${time}: $${g.imageIdx}:${g.strength}`;
-                });
-                guideStr = ` { ${gParts.join(", ")} }`;
+            if (c.guides && c.guides.length) {
+                guideStr = " { " + c.guides.map(g => {
+                    // Determine relative time
+                    // Simplified: Just output image refs for now, assume Start/End logic
+                    // Or full syntax: 0.0s: $0:1.0
+                    return `${g.time.toFixed(1)}s: $${g.imgIdx}:${g.strength}`;
+                }).join(", ") + " }";
             }
-            // Transition format: 2.0s -> "cut" syntax supported?
-            // Existing parser: (duration: "prompt")
-            // Transition is separate? 
-            // My Parser: "+ (2.0s ...)" means Blend. 
-            // "|" means Cut.
-            // So we need to control the joining character.
+            const s = `(${c.duration.toFixed(1)}s: "${c.prompt.replace(/"/g, '\\"')}"${guideStr})`;
+            t += c.duration;
+            return s;
+        }).join(" + ");
+    }
 
-            // Wait, my parser expects joining characters BETWEEN chunks.
-            // But chunks array is linear.
-            // First chunk joins nothing.
-            // Second chunk joins First?
-            // We should store 'transitionToNext' or 'transitionFromPrev'?
-            // Parser: `Chunk1 + Chunk2`. The '+' belongs to the join.
-            // Let's store `transition` on the chunk as "how it joins PREVIOUS".
-            // Chunk 0 has no transition.
+    buildUI() {
+        this.overlay = document.createElement("div");
+        this.overlay.className = "ltxv-overlay";
 
-            const content = `(${c.duration}s: "${c.prompt.replace(/"/g, '\\"')}"${guideStr})`;
-            return { content, transition: c.transition };
-        }).reduce((acc, curr, idx) => {
-            if (idx === 0) return curr.content;
-            const op = curr.transition === "cut" ? " | " : " + ";
-            return acc + op + curr.content;
-        }, "");
+        const modal = document.createElement("div");
+        modal.className = "ltxv-modal";
+
+        // Header
+        const header = document.createElement("div");
+        header.className = "ltxv-header";
+        header.innerHTML = `<span>LTXV Timeline Editor</span>`;
+        const closeBtn = document.createElement("button");
+        closeBtn.innerText = "Close & Save";
+        closeBtn.onclick = () => {
+            this.onChange(this.serialize());
+            this.overlay.style.display = "none";
+        };
+        header.appendChild(closeBtn);
+        modal.appendChild(header);
+
+        // Body
+        const body = document.createElement("div");
+        body.className = "ltxv-body";
+
+        // Timeline
+        const area = document.createElement("div");
+        area.className = "ltxv-timeline-area";
+        this.track = document.createElement("div");
+        this.track.className = "ltxv-track";
+        area.appendChild(this.track);
+        body.appendChild(area);
+
+        // Properties
+        this.props = document.createElement("div");
+        this.props.className = "ltxv-prop-panel";
+        body.appendChild(this.props);
+
+        modal.appendChild(body);
+        this.overlay.appendChild(modal);
+        document.body.appendChild(this.overlay);
+
+        this.renderTimeline();
+        this.renderProps();
+    }
+
+    open() {
+        this.overlay.style.display = "flex";
+        this.renderTimeline();
+    }
+
+    renderTimeline() {
+        this.track.innerHTML = "";
+        let x = 0;
+
+        this.chunks.forEach((chunk, i) => {
+            const width = chunk.duration * this.zoom;
+
+            // Block
+            const el = document.createElement("div");
+            el.className = "ltxv-chunk-block";
+            if (i === this.selectedChunkIdx) el.classList.add("selected");
+            el.style.left = x + "px";
+            el.style.width = width + "px";
+            el.innerText = chunk.prompt.substring(0, 20) + "...";
+            el.onclick = (e) => {
+                e.stopPropagation();
+                this.selectedChunkIdx = i;
+                this.renderTimeline();
+                this.renderProps();
+            };
+
+            // Drag Handle (Right Edge)
+            const handle = document.createElement("div");
+            handle.className = "ltxv-marker-handle";
+            handle.style.left = (width - 8) + "px";
+            handle.style.top = "50%";
+            handle.onmousedown = (e) => this.startDrag(e, i);
+            el.appendChild(handle);
+
+            this.track.appendChild(el);
+            x += width;
+        });
+
+        this.track.style.width = (x + 200) + "px"; // Extra space
+    }
+
+    startDrag(e, idx) {
+        e.stopPropagation();
+        const startX = e.clientX;
+        const startDur = this.chunks[idx].duration;
+
+        const onMove = (mv) => {
+            const diffPx = mv.clientX - startX;
+            const diffSec = diffPx / this.zoom;
+            let newDur = Math.max(0.5, startDur + diffSec); // Min 0.5s
+            this.chunks[idx].duration = newDur;
+            this.renderTimeline();
+        };
+
+        const onUp = () => {
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onUp);
+            this.renderProps(); // Update duration input
+        };
+
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+    }
+
+    renderProps() {
+        this.props.innerHTML = "";
+        if (this.selectedChunkIdx < 0) {
+            this.props.innerText = "Select a chunk to edit.";
+            return;
+        }
+
+        const c = this.chunks[this.selectedChunkIdx];
+
+        // Duration
+        const grp1 = document.createElement("div");
+        grp1.className = "ltxv-prop-group";
+        grp1.innerHTML = `<label>Duration (s)</label>`;
+        const durIn = document.createElement("input");
+        durIn.type = "number"; durIn.step = "0.1"; durIn.className = "ltxv-input";
+        durIn.value = c.duration.toFixed(1);
+        durIn.onchange = (e) => {
+            c.duration = parseFloat(e.target.value);
+            this.renderTimeline();
+        };
+        grp1.appendChild(durIn);
+        this.props.appendChild(grp1);
+
+        // Prompt
+        const grp2 = document.createElement("div");
+        grp2.className = "ltxv-prop-group";
+        grp2.style.flex = "1";
+        grp2.innerHTML = `<label>Prompt</label>`;
+        const pIn = document.createElement("textarea");
+        pIn.className = "ltxv-textarea";
+        pIn.value = c.prompt;
+        pIn.onchange = (e) => {
+            c.prompt = e.target.value;
+            this.renderTimeline();
+        };
+        grp2.appendChild(pIn);
+        this.props.appendChild(grp2);
+
+        // Add Chunk Btn
+        const grp3 = document.createElement("div");
+        grp3.className = "ltxv-prop-group";
+        const addBtn = document.createElement("button");
+        addBtn.innerText = "Add After";
+        addBtn.onclick = () => {
+            this.chunks.splice(this.selectedChunkIdx + 1, 0, {
+                duration: 2.0, prompt: "New Scene", guides: []
+            });
+            this.renderTimeline();
+        };
+        grp3.appendChild(addBtn);
+        this.props.appendChild(grp3);
     }
 }
 
 app.registerExtension({
     name: "ErosDiffusion.LTXVTimelineEditor",
-    async beforeRegisterNodeDef(nodeType, nodeData, app) {
+    async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name === "LTXVTimelineEditor") {
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 if (onNodeCreated) onNodeCreated.apply(this, arguments);
 
-                const node = this;
                 injectStyle();
+                const node = this;
+                const widget = this.widgets.find(w => w.name === "script");
 
-                // Find script widget
-                const scriptWidget = this.widgets.find(w => w.name === "script");
-                if (scriptWidget) {
-                    scriptWidget.inputEl.style.display = "none"; // Hide default textarea
-                    // Keep it for serialization
-                }
-
-                // Create Container
-                const container = document.createElement("div");
-                container.className = "ltxv-timeline-editor";
-
-                // Add to DOMWidget
-                const domWidget = this.addDOMWidget("timeline_ui", "ui", container, {
-                    getValue() { return scriptWidget.value; },
-                    setValue(v) { scriptWidget.value = v; },
-                });
-
-                // Logic
-                const state = new TimelineState(scriptWidget.value, (newStr) => {
-                    scriptWidget.value = newStr;
-                    // Trigger graph update if needed?
-                });
-
-                // Render Function
-                function render() {
-                    container.innerHTML = "";
-
-                    state.chunks.forEach((chunk, cIdx) => {
-                        const card = document.createElement("div");
-                        card.className = "ltxv-chunk";
-
-                        // Header
-                        const header = document.createElement("div");
-                        header.className = "ltxv-chunk-header";
-
-                        const title = document.createElement("span");
-                        title.className = "ltxv-chunk-title";
-                        title.innerText = `Chunk ${cIdx + 1}`;
-                        header.appendChild(title);
-
-                        // Delete Button
-                        const delBtn = document.createElement("button");
-                        delBtn.className = "ltxv-btn ltxv-btn-danger";
-                        delBtn.innerText = "X";
-                        delBtn.onclick = () => { state.removeChunk(cIdx); render(); };
-                        header.appendChild(delBtn);
-
-                        card.appendChild(header);
-
-                        // Controls Row
-                        const row = document.createElement("div");
-                        row.className = "ltxv-row";
-
-                        // Duration
-                        const durLabel = document.createElement("label");
-                        durLabel.innerText = "Dur(s):";
-                        const durIn = document.createElement("input");
-                        durIn.type = "number";
-                        durIn.step = "0.1";
-                        durIn.className = "ltxv-input ltxv-input-sm";
-                        durIn.value = chunk.duration;
-                        durIn.onchange = (e) => state.updateChunk(cIdx, "duration", parseFloat(e.target.value));
-                        row.appendChild(durLabel);
-                        row.appendChild(durIn);
-
-                        // Transition (If not first)
-                        if (cIdx > 0) {
-                            const transLabel = document.createElement("label");
-                            transLabel.innerText = "Trans:";
-                            const transSel = document.createElement("select");
-                            transSel.className = "ltxv-input";
-                            ["blend", "cut"].forEach(opt => {
-                                const o = document.createElement("option");
-                                o.value = opt;
-                                o.innerText = opt;
-                                if (opt === chunk.transition) o.selected = true;
-                                transSel.appendChild(o);
-                            });
-                            transSel.onchange = (e) => state.updateChunk(cIdx, "transition", e.target.value);
-                            row.appendChild(transLabel);
-                            row.appendChild(transSel);
-                        }
-
-                        card.appendChild(row);
-
-                        // Prompt
-                        const promptArea = document.createElement("textarea");
-                        promptArea.className = "ltxv-textarea";
-                        promptArea.placeholder = "Prompt...";
-                        promptArea.value = chunk.prompt;
-                        promptArea.onchange = (e) => state.updateChunk(cIdx, "prompt", e.target.value);
-                        card.appendChild(promptArea);
-
-                        // Guides
-                        const guidesDiv = document.createElement("div");
-                        guidesDiv.className = "ltxv-guides";
-
-                        chunk.guides.forEach((g, gIdx) => {
-                            const gRow = document.createElement("div");
-                            gRow.className = "ltxv-guide-item";
-
-                            // Type
-                            const tSel = document.createElement("select");
-                            tSel.className = "ltxv-input";
-                            ["start", "end", "time"].forEach(o => {
-                                const op = document.createElement("option");
-                                op.value = o;
-                                op.innerText = o;
-                                if (o === g.timeType) op.selected = true;
-                                tSel.appendChild(op);
-                            });
-                            tSel.onchange = (e) => {
-                                state.updateGuide(cIdx, gIdx, "timeType", e.target.value);
-                                render(); // Re-render to show/hide timeVal
-                            };
-                            gRow.appendChild(tSel);
-
-                            // Time Value
-                            if (g.timeType === "time") {
-                                const tVal = document.createElement("input");
-                                tVal.type = "number";
-                                tVal.step = "0.1";
-                                tVal.className = "ltxv-input ltxv-input-sm";
-                                tVal.value = g.timeVal;
-                                tVal.onchange = (e) => state.updateGuide(cIdx, gIdx, "timeVal", parseFloat(e.target.value));
-                                gRow.appendChild(tVal);
-                            }
-
-                            // Image Index
-                            const imgLabel = document.createElement("span");
-                            imgLabel.innerText = "Img $";
-                            gRow.appendChild(imgLabel);
-
-                            const imgIn = document.createElement("input");
-                            imgIn.type = "number";
-                            imgIn.min = "0";
-                            imgIn.className = "ltxv-input ltxv-input-sm";
-                            imgIn.value = g.imageIdx;
-                            imgIn.style.width = "40px";
-                            imgIn.onchange = (e) => state.updateGuide(cIdx, gIdx, "imageIdx", parseInt(e.target.value));
-                            gRow.appendChild(imgIn);
-
-                            // Strength
-                            const strIn = document.createElement("input");
-                            strIn.type = "range";
-                            strIn.min = "0";
-                            strIn.max = "1";
-                            strIn.step = "0.05";
-                            strIn.value = g.strength;
-                            strIn.onchange = (e) => state.updateGuide(cIdx, gIdx, "strength", parseFloat(e.target.value));
-                            gRow.appendChild(strIn);
-
-                            // Remove Guide
-                            const remG = document.createElement("button");
-                            remG.className = "ltxv-btn ltxv-btn-danger";
-                            remG.innerText = "x";
-                            remG.onclick = () => { state.removeGuide(cIdx, gIdx); render(); };
-                            gRow.appendChild(remG);
-
-                            guidesDiv.appendChild(gRow);
+                // Create Button to Open Editor
+                this.addWidget("button", "Open Visual Editor", null, () => {
+                    if (!node.editor) {
+                        node.editor = new TimelineEditorV2(widget, (v) => {
+                            widget.value = v;
                         });
-
-                        // Add Guide Btn
-                        const addGBtn = document.createElement("button");
-                        addGBtn.className = "ltxv-btn";
-                        addGBtn.innerText = "+ Add Guide";
-                        addGBtn.onclick = () => { state.addGuide(cIdx); render(); };
-                        guidesDiv.appendChild(addGBtn);
-
-                        card.appendChild(guidesDiv);
-                        container.appendChild(card);
-                    });
-
-                    // Add Chunk Btn
-                    const addCBtn = document.createElement("button");
-                    addCBtn.className = "ltxv-btn ltxv-btn-primary";
-                    addCBtn.innerText = "+ Add Scene Chunk";
-                    addCBtn.onclick = () => { state.addChunk(); render(); };
-                    container.appendChild(addCBtn);
-                }
-
-                render();
+                    }
+                    node.editor.open();
+                });
             };
         }
     }
