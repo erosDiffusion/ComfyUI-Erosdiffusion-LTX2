@@ -50,6 +50,7 @@ class SceneChunk:
     audio_spec: str = "silent"  # "silent", "ambient", or dialogue text
     guides: list[ImageGuide] = field(default_factory=list)
     shot_name: Optional[str] = None  # Optional shot grouping
+    transition_type: str = "blend" # "blend" or "cut"
     
     @property
     def duration(self) -> float:
@@ -236,7 +237,7 @@ def parse_scene_script(text: str) -> list[SceneChunk]:
     Script format:
     ```
     # === SHOT NAME ===
-    [MM:SS-MM:SS] Scene description | audio:spec | guide_specs...
+    [MM:SS-MM:SS] Scene description | audio:spec | guide_specs... | transition:cut
     ```
     
     Args:
@@ -286,11 +287,20 @@ def parse_scene_script(text: str) -> list[SceneChunk]:
             
             audio_spec = "silent"
             guides = []
+            transition_type = "blend"
             
             for part in parts[1:]:
                 part = part.strip()
-                if part.lower().startswith("audio:"):
+                lower_part = part.lower()
+                
+                if lower_part.startswith("audio:"):
                     audio_spec = parse_audio_spec(part)
+                elif lower_part.startswith("transition:"):
+                    t_val = lower_part.split(":", 1)[1].strip()
+                    if t_val in ("cut", "hard"):
+                        transition_type = "cut"
+                    else:
+                        transition_type = "blend" # explicit blend
                 else:
                     guide = parse_guide_spec(part, start_time, end_time)
                     if guide:
@@ -302,7 +312,8 @@ def parse_scene_script(text: str) -> list[SceneChunk]:
                 prompt=prompt,
                 audio_spec=audio_spec,
                 guides=guides,
-                shot_name=current_shot
+                shot_name=current_shot,
+                transition_type=transition_type
             )
             chunks.append(chunk)
     

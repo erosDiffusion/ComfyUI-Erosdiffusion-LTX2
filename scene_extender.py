@@ -11,8 +11,9 @@ from typing import Optional
 import torch
 from comfy_api.latest import io
 
-# Try to import ComfyUI components - handle gracefully if not available
+# Import ComfyUI components
 try:
+    import nodes
     import comfy.model_management as mm
     import comfy.utils
     from comfy.nested_tensor import NestedTensor
@@ -20,6 +21,23 @@ try:
 except ImportError:
     COMFY_AVAILABLE = False
     NestedTensor = None
+
+# Import LTXV nodes/components
+try:
+    from comfy_extras.nodes_lt import EmptyLTXVLatentVideo, LTXVAddGuide
+    from comfy_extras.nodes_custom_sampler import SamplerCustomAdvanced
+    
+    # Try importing LTXV-specific utilities from the custom node package
+    # This tries standard installation paths
+    try:
+        from custom_nodes.ComfyUI_LTXVideo.easy_samplers import LinearOverlapLatentTransition
+        from custom_nodes.ComfyUI_LTXVideo.latents import LTXVAddLatentGuide, LTXVSelectLatents
+        LTXV_UTILS_AVAILABLE = True
+    except ImportError:
+        # Check if we are inside the package (relative import) or handle import differently
+        LTXV_UTILS_AVAILABLE = False
+except ImportError:
+    LTXV_UTILS_AVAILABLE = False
 
 # Local imports
 from .time_manager import TimeManager
@@ -50,7 +68,7 @@ class LTXVSceneExtender(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="LTXVSceneExtender",
-            display_name="LTXV Scene Extender",
+            display_name="💜 LTXV Scene Extender ErosDiffusion",
             category="ErosDiffusion/ltxv",
             description="Extend video with synchronized audio, image guides, and timestamped prompts",
             inputs=[
@@ -288,60 +306,315 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
         # Process chunks
         extended_latent = latent
         extended_video = None
-        extended_audio = None
+        # Process chunks
+        final_video_list = []
+        final_audio_list = []
+        
+        # Keep track of previous latent for extension
+        prev_latent = latent
+        current_time = 0.0
         
         for i, chunk in enumerate(chunks):
+            chunk_duration = chunk.end_sec - chunk.start_sec
             print(f"Processing chunk {i+1}/{len(chunks)}: [{chunk.start_sec:.1f}s - {chunk.end_sec:.1f}s]")
-            print(f"  Prompt: {chunk.prompt[:50]}...")
-            print(f"  Audio: {chunk.audio_spec}")
-            print(f"  Guides: {len(chunk.guides)}")
             
             # Encode chunk prompt
             chunk_cond = cls._encode_prompt(clip, chunk.prompt)
             
-            # Get guide images for this chunk
-            chunk_images, chunk_indices = get_chunk_guide_images(
+            # Create new guider for this chunk
+            chunk_guider = copy.copy(guider)
+            chunk_guider.original_conds = copy.deepcopy(guider.original_conds)
+            
+            # Set prompt conditioning
+            # Note: This is simplified; specialized usage might need SetConditioning logic
+            c_pos, c_neg = cls._get_conds_from_guider(chunk_guider)
+            # Update positive prompt (simplest way: replace cross_attn)
+            # This assumes standard styling; advanced users might want more control
+            new_pos = []
+            for t in c_pos:
+                new_t = [t[0], copy.deepcopy(t[1])]
+                new_t[0] = chunk_cond # Replace CLIP embedding
+                new_t[1]['text'] = chunk.prompt
+                new_pos.append(new_t)
+            chunk_guider.set_conds(new_pos, c_neg)
+
+            # Determine dimensions
+            
+            # Determine if we should extend or start new
+            is_extension = (prev_latent is not None) and (chunk.transition_type != "cut")
+            
+            # Prepare Input Latent
+            if not is_extension:
+                # FIRST CHUNK or CUT: New Generation
+                print(f"  Type: {'New Generation' if prev_latent is None else 'Hard Cut (New Clean Generation)'}")
+                latent_length = time_mgr.calculate_video_latent_count(chunk_duration)
+                
+                # Create empty video latent
+                video_latent = torch.zeros(
+                    [1, 128, latent_length, latent_height, latent_width],
+                    device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
+                )
+                
+                # Handle AV Model
+                if is_av_model and NestedTensor is not None:
+                    audio_length = time_mgr.calculate_audio_latent_count(chunk_duration)
+                    audio_latent = torch.zeros(
+                        [1, 128, audio_length, 1, 1],
+                        device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
+                    )
+                    input_latent = {"samples": NestedTensor((video_latent, audio_latent))}
+                else:
+                    input_latent = {"samples": video_latent}
+                
+                start_frame_idx = 0
+                
+            else:
+                # SUBSEQUENT CHUNK: Extension
+                print("  Type: Extension")
+                
+                # Extract previous samples (handle AV)
+                prev_samples = prev_latent["samples"]
+                if is_av_model and NestedTensor is not None and isinstance(prev_samples, NestedTensor):
+                    prev_video = prev_samples.tensors[0]
+                else:
+                    prev_video = prev_samples
+                
+                # Calculate overlap
+                # Important: Total duration = Overlap + Chunk Duration
+                total_duration = overlap_duration + chunk_duration
+                latent_length = time_mgr.calculate_video_latent_count(total_duration)
+                
+                overlap_frames = time_mgr.calculate_video_latent_count(overlap_duration)
+                last_frames = prev_video[:, :, -overlap_frames:]
+                
+                new_video = torch.zeros(
+                    [1, 128, latent_length, latent_height, latent_width],
+                    device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
+                )
+                
+                # Handle AV
+                if is_av_model and NestedTensor is not None:
+                    audio_length = time_mgr.calculate_audio_latent_count(total_duration)
+                    new_audio = torch.zeros(
+                        [1, 128, audio_length, 1, 1],
+                        device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
+                    )
+                    input_latent = {"samples": NestedTensor((new_video, new_audio))}
+                else:
+                    input_latent = {"samples": new_video}
+
+                # Condition on overlap (Latent Guide)
+                t = last_frames.to(mm.intermediate_device())
+                if is_av_model and NestedTensor is not None:
+                    v_part = input_latent["samples"].tensors[0]
+                    # Ensure dimensions match (sometimes off by 1 due to rounding)
+                    copy_len = min(t.shape[2], v_part.shape[2])
+                    v_part[:, :, :copy_len] = t[:, :, :copy_len]
+                    input_latent["samples"] = NestedTensor((v_part, input_latent["samples"].tensors[1]))
+                else:
+                    copy_len = min(t.shape[2], input_latent["samples"].shape[2])
+                    input_latent["samples"][:, :, :copy_len] = t[:, :, :copy_len]
+                
+                # Make mask
+                mask = torch.ones(
+                    (1, 1, latent_length, 1, 1),
+                    dtype=torch.float32,
+                    device=mm.intermediate_device()
+                )
+                mask[:, :, :copy_len] = 1.0 - temporal_cond_strength
+                
+                if is_av_model and NestedTensor is not None:
+                    # Audio mask too
+                    # Audio overlap frames
+                    audio_overlap = time_mgr.calculate_audio_latent_count(overlap_duration)
+                    amask = torch.ones(
+                        (1, 1, audio_length, 1, 1),
+                        dtype=torch.float32,
+                        device=mm.intermediate_device()
+                    )
+                    # We assume we want to preserve audio overlap too?
+                    # Extension usually implies extending from context.
+                    # Audio doesn't have "Latent Guide" traditionally but masking works.
+                    amask[:, :, :audio_overlap] = 1.0 - temporal_cond_strength
+                    
+                    input_latent["noise_mask"] = NestedTensor((mask, amask))
+                else:
+                    input_latent["noise_mask"] = mask
+                
+                start_frame_idx = 0 # Relative to this chunk latent
+                
+                
+            # Apply Image Guides
+            chunk_cond_images, chunk_cond_indices = get_chunk_guide_images(
                 chunk, resolved_refs, time_mgr
             )
             
-            # Calculate frame count for this chunk
-            chunk_duration = chunk.end_sec - chunk.start_sec
-            chunk_frames = time_mgr.seconds_to_pixel_frame(chunk_duration)
+            if chunk_cond_images is not None:
+                guide_count = chunk_cond_images.shape[0]
+                print(f"  Applying {guide_count} image guides")
+                
+                # Resize images first. chunk_cond_images is [N, H, W, C]
+                # common_upscale expects [N, C, H, W] usually, or handles it?
+                # Actually common_upscale takes [B, H, W, C] and returns [B, H, W, C]
+                # Let's verify standard comfy behavior. 
+                # Comfy uses [B, H, W, C] mostly. 
+                # common_upscale implementation in comfy/utils.py swaps to BCHW, interpolates, swaps back.
+                resized_guides = comfy.utils.common_upscale(
+                    chunk_cond_images.movedim(-1, 1), # [N, C, H, W]
+                    width, height, "bilinear", "center"
+                ).movedim(1, -1) # [N, H, W, C]
+                
+                # Split indices string
+                indices_list = [int(x) for x in chunk_cond_indices.split(",")]
+                
+                # For extension chunks, the latent starts BEFORE the chunk start (by overlap)
+                # So we must offset guide indices to match the latent
+                # BUT if it's a CUT, we are NOT extending, so it acts like "first chunk" (Starts at 0)
+                if is_extension:
+                     overlap_pixels = time_mgr.seconds_to_pixel_frame(overlap_duration)
+                     indices_list = [x + overlap_pixels for x in indices_list]
+                
+                for img, idx in zip(resized_guides, indices_list):
+                    # Logic similar to MVP: extract, guide, pack
+                    c_pos, c_neg = cls._get_conds_from_guider(chunk_guider)
+                    
+                    if is_av_model and NestedTensor is not None:
+                        # Extract video
+                        current_v = input_latent["samples"].tensors[0]
+                        temp_l = {"samples": current_v}
+                        if "noise_mask" in input_latent:
+                             temp_l["noise_mask"] = input_latent["noise_mask"].tensors[0]
+                        
+                        # Apply
+                        new_pos, new_neg, new_l = LTXVAddGuide.execute(
+                            c_pos, c_neg, video_vae, temp_l, img.unsqueeze(0),
+                            idx, guide_strength
+                        )
+                        
+                        # Pack back
+                        v_samp = new_l["samples"]
+                        a_samp = input_latent["samples"].tensors[1]
+                        input_latent["samples"] = NestedTensor((v_samp, a_samp))
+                        
+                        if "noise_mask" in new_l:
+                            v_mask = new_l["noise_mask"]
+                            if "noise_mask" in input_latent:
+                                a_mask = input_latent["noise_mask"].tensors[1]
+                            else:
+                                a_mask = torch.ones((1,1,a_samp.shape[2],1,1), device=a_samp.device)
+                            input_latent["noise_mask"] = NestedTensor((v_mask, a_mask))
+                            
+                        chunk_guider.set_conds(new_pos, new_neg)
+                    else:
+                        new_pos, new_neg, input_latent = LTXVAddGuide.execute(
+                            c_pos, c_neg, video_vae, input_latent, img.unsqueeze(0),
+                            idx, guide_strength
+                        )
+                        chunk_guider.set_conds(new_pos, new_neg)
+
+            # Execution
+            print("  Sampling...")
+            _, denoised = SamplerCustomAdvanced().sample(
+                noise, chunk_guider, sampler, sigmas, input_latent
+            )
             
-            # For now, we'll create empty latents and return them
-            # Full implementation would use LTXVExtendSampler/LTXVBaseSampler
-            if extended_latent is None:
-                # First chunk: create new latent
-                latent_frames = time_mgr.calculate_video_latent_count(chunk_duration)
-                extended_video = torch.zeros(
-                    [1, 128, latent_frames, latent_height, latent_width],
-                    device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
-                )
-                extended_latent = {"samples": extended_video}
+            # Store Result (Accumulate)
+            final_video_list.append(denoised)
+            prev_latent = denoised
             
-            # TODO: Implement actual sampling using LTXVExtendSampler patterns
-            # This is a placeholder that shows the structure
+        print("Generation complete. Blending chunks...")
         
-        # Handle audio output
-        if extended_audio is None:
-            extended_audio = torch.zeros([1, 64, 1, 1])  # Placeholder
+        full_video = None
+        full_audio = None
         
-        # Combine outputs
-        video_output = {"samples": extended_video}
-        audio_output = {"samples": extended_audio}
+        # Calculate overlap in latent frames
+        video_overlap_frames = time_mgr.calculate_video_latent_count(overlap_duration)
+        audio_overlap_frames = time_mgr.calculate_audio_latent_count(overlap_duration)
         
-        if is_av_model and COMFY_AVAILABLE and NestedTensor is not None:
-            combined = {"samples": NestedTensor((extended_video, extended_audio))}
+        for i, chunk_res in enumerate(final_video_list):
+            chunk = chunks[i]
+            is_cut = chunk.transition_type == "cut"
+            
+            # Extract components
+            if is_av_model and NestedTensor is not None and isinstance(chunk_res["samples"], NestedTensor):
+                v_part = chunk_res["samples"].tensors[0] # [B, 128, T, H, W]
+                a_part = chunk_res["samples"].tensors[1] # [B, 128, T, 1, 1]
+            else:
+                v_part = chunk_res["samples"]
+                a_part = None
+            
+            if i == 0:
+                full_video = v_part
+                full_audio = a_part
+            else:
+                # Blend Video
+                # Linear crossfade for video unless CUT
+                if is_cut:
+                    print(f"  Chunk {i+1}: Hard Cut")
+                    overlap_to_use = 0
+                else:
+                    overlap_to_use = video_overlap_frames
+                    
+                full_video = cls._blend_latents(full_video, v_part, overlap_to_use)
+                
+                # Blend Audio
+                if full_audio is not None and a_part is not None:
+                     if is_cut:
+                         a_overlap_to_use = 0
+                     else:
+                         a_overlap_to_use = audio_overlap_frames
+                     full_audio = cls._blend_latents(full_audio, a_part, a_overlap_to_use)
+
+        # Final Output Packaging
+        video_out = {"samples": full_video}
+        audio_out = {"samples": full_audio} if full_audio is not None else {"samples": torch.zeros([1,64,1,1])} # Placeholder
+        
+        if is_av_model and NestedTensor is not None and full_audio is not None:
+             combined = {"samples": NestedTensor((full_video, full_audio))}
         else:
-            combined = video_output
-        
+             combined = video_out
+             
         return io.NodeOutput(
             combined,
-            video_output,
+            video_out,
             audio_output,
-            positive,
+            positive, # Return last conds
             negative
         )
+
+    @classmethod
+    def _blend_latents(cls, prev: torch.Tensor, next_t: torch.Tensor, overlap: int) -> torch.Tensor:
+        """Blend two latents with linear crossfade on dim 2 (time)."""
+        if overlap <= 0:
+            return torch.cat([prev, next_t], dim=2)
+            
+        # Ensure proper overlap
+        overlap = min(overlap, prev.shape[2], next_t.shape[2])
+        
+        # Regions
+        prev_cut = prev[:, :, :-overlap]
+        prev_tail = prev[:, :, -overlap:]
+        next_head = next_t[:, :, :overlap]
+        next_cut = next_t[:, :, overlap:]
+        
+        # Linear weights [0..1]
+        alpha = torch.linspace(0, 1, overlap, device=prev.device, dtype=prev.dtype)
+        
+        # Reshape alpha for broadcasting [1, 1, overlap, 1, 1]
+        # Valid for both Video [B, C, T, H, W] and Audio [B, C, T, 1, 1]
+        alpha = alpha.view(1, 1, -1, 1, 1)
+        
+        # Blend: prev_tail * (1-alpha) + next_head * alpha
+        # Wait, if we are appending NEXT to PREV.
+        # We want smooth transition from PREV to NEXT.
+        # Start of overlap: 100% Prev, 0% Next.
+        # End of overlap: 0% Prev, 100% Next.
+        # So alpha should go 0->1.
+        # Blended = prev_tail * (1 - alpha) + next_head * alpha
+        
+        blended = prev_tail * (1.0 - alpha) + next_head * alpha
+        
+        return torch.cat([prev_cut, blended, next_cut], dim=2)
     
     @classmethod
     def _is_av_model(cls, model) -> bool:

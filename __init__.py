@@ -22,8 +22,8 @@ NODE_CLASS_MAPPINGS = {
 
 # Display name mappings (legacy compatibility)
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "LTXVSceneExtender": "LTXV Scene Extender",
-    "LTXVSceneExtenderMVP": "LTXV Scene Extender (MVP)",
+    "LTXVSceneExtender": "💜 LTXV Scene Extender ErosDiffusion",
+    "LTXVSceneExtenderMVP": "💜 LTXV Scene Extender (MVP) ErosDiffusion",
 }
 
 # Web directory for frontend components

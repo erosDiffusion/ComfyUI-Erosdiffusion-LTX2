@@ -85,7 +85,7 @@ class LTXVSceneExtenderMVP(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="LTXVSceneExtenderMVP",
-            display_name="LTXV Scene Extender (MVP)",
+            display_name="💜 LTXV Scene Extender (MVP) ErosDiffusion",
             category="ErosDiffusion/ltxv",
             description="MVP: Extend video with timestamped prompts and image guides",
             inputs=[

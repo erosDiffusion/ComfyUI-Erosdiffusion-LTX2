@@ -23,6 +23,15 @@ Visual timeline interface for creating scene scripts:
 - Waveform visualization
 - Dialogue text entry
 - Export to script format
+    
+### REQ-003: Node Naming Convention
+**Branch:** feature/REQ-001-scene-extender
+**Status:** Completed
+
+All custom nodes must follow the naming pattern:
+- Prefix: `💜 ` (Purple Heart Emoji + Space)
+- Suffix: ` ErosDiffusion` (Space + ErosDiffusion)
+Example: `💜 LTXV Scene Extender ErosDiffusion`
 
 ## Script Format Specification
 
