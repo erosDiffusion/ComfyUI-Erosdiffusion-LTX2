@@ -111,11 +111,18 @@ class AudioOverlapBlender:
         )
         
         # Reshape for broadcasting
-        # Audio latent is typically [batch, channels, frames, features]
-        while alpha.dim() < prev_tail.dim():
-            alpha = alpha.unsqueeze(0)
+        # Audio latent is [batch, channels, frames, freq_bins]
+        # Alpha needs to be [1, 1, actual_overlap, 1] to broadcast
         if prev_tail.dim() == 4:
-            alpha = alpha.unsqueeze(-1)  # [1, 1, overlap, 1]
+            # Audio: [B, C, T, F] -> alpha: [1, 1, overlap, 1]
+            alpha = alpha.view(1, 1, actual_overlap, 1)
+        elif prev_tail.dim() == 5:
+            # Video: [B, C, T, H, W] -> alpha: [1, 1, overlap, 1, 1]
+            alpha = alpha.view(1, 1, actual_overlap, 1, 1)
+        else:
+            # Fallback: add dims at front
+            while alpha.dim() < prev_tail.dim():
+                alpha = alpha.unsqueeze(0)
         
         alpha = alpha.expand_as(prev_tail)
         
