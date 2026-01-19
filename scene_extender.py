@@ -217,6 +217,11 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                     step=0.05,
                     tooltip="AdaIN factor to prevent oversaturation"
                 ),
+                io.Boolean.Input(
+                    "enable_cache",
+                    default=False,
+                    tooltip="Enable chunk caching for faster re-runs (can use extra memory)"
+                ),
             ],
             outputs=[
                 io.Latent.Output(display_name="latent"),
@@ -250,6 +255,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
         audio_overlap_frames: int,
         temporal_cond_strength: float,
         adain_factor: float,
+        enable_cache: bool,
         audio_vae=None,
         latent=None,
         guide_images=None,
@@ -353,7 +359,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 width, height
             )
             
-            if cache_key in _CACHE:
+            if enable_cache and cache_key in _CACHE:
                  print(f"Using Cached Chunk {i}")
                  chunk_res = _CACHE[cache_key]
                  final_video_list.append(chunk_res)
@@ -581,8 +587,9 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
             final_video_list.append(denoised)
             prev_latent = denoised
             
-            # Cache it
-            _CACHE[cache_key] = denoised
+            # Cache it (if caching is enabled)
+            if enable_cache:
+                _CACHE[cache_key] = denoised
             
             # Keep refs for return
             positive = c_pos
@@ -639,10 +646,15 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 
                 if full_audio is not None and a_part is not None:
                      if is_cut:
-                         a_ov_use = 0
+                         # Hard cut - just concatenate without overlap
+                         full_audio = torch.cat([full_audio, a_part], dim=2)
+                     elif audio_blender is not None:
+                         # Use specialized audio blender for proper crossfade
+                         full_audio = audio_blender.blend_chunks(full_audio, a_part)
                      else:
+                         # Fallback to generic blending
                          a_ov_use = audio_overlap_frames
-                     full_audio = cls._blend_latents(full_audio, a_part, a_ov_use)
+                         full_audio = cls._blend_latents(full_audio, a_part, a_ov_use)
 
         # Output
         video_out = {"samples": full_video}
