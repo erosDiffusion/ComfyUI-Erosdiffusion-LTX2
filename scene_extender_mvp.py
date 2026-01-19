@@ -272,10 +272,37 @@ Example:
             # New generation (like LTXVBaseSampler)
             print("[SceneExtenderMVP] Generating new video...")
             
-            # Create empty latent
-            output_latent = EmptyLTXVLatentVideo().execute(
-                width, height, num_frames, 1
-            )[0]
+            # Create empty audio and video latents
+            # Calculate dimensions
+            # Video: [batch, 128, frames, height//32, width//32]
+            # Audio: [batch, 128, audio_frames, 1, 1]
+            
+            latent_height = height // height_scale_factor
+            latent_width = width // width_scale_factor
+            latent_length = (num_frames - 1) // time_scale_factor + 1
+            
+            video_latent = torch.zeros(
+                [1, 128, latent_length, latent_height, latent_width],
+                device=comfy.model_management.intermediate_device()
+            )
+            
+            if using_av_model and NestedTensor is not None:
+                # Calculate audio frames: 25 latents per second approx
+                # For LTXV, audio is strictly tied to video length
+                # 16000Hz / 160 hop / 4 downsample = 25 latents/sec
+                # It usually matches video latent length if FPS=25
+                audio_length = latent_length 
+                
+                audio_latent = torch.zeros(
+                    [1, 128, audio_length, 1, 1],
+                    device=comfy.model_management.intermediate_device()
+                )
+                
+                # Create NestedTensor for AV
+                samples = NestedTensor((video_latent, audio_latent))
+                output_latent = {"samples": samples}
+            else:
+                output_latent = {"samples": video_latent}
             
             # Add guide conditioning if available
             if cond_images is not None and cond_indices is not None:
@@ -286,28 +313,84 @@ Example:
                         # First frame: use I2V conditioning
                         encode_pixels = img.unsqueeze(0)[:, :, :, :3]
                         t = video_vae.encode(encode_pixels)
-                        output_latent["samples"][:, :, :t.shape[2]] = t
+                        
+                        if using_av_model and NestedTensor is not None:
+                             # Update only video part of NestedTensor
+                            v_samples = output_latent["samples"].tensors[0]
+                            v_samples[:, :, :t.shape[2]] = t
+                            # Pack back
+                            output_latent["samples"] = NestedTensor((v_samples, output_latent["samples"].tensors[1]))
+                        else:
+                            output_latent["samples"][:, :, :t.shape[2]] = t
                         
                         # Create noise mask
                         if "noise_mask" not in output_latent:
-                            mask = torch.ones(
-                                (1, 1, output_latent["samples"].shape[2], 1, 1),
+                            video_mask = torch.ones(
+                                (1, 1, video_latent.shape[2], 1, 1),
                                 dtype=torch.float32,
-                                device=output_latent["samples"].device,
+                                device=video_latent.device,
                             )
-                            mask[:, :, :t.shape[2]] = 1.0 - guide_strength
-                            output_latent["noise_mask"] = mask
+                            video_mask[:, :, :t.shape[2]] = 1.0 - guide_strength
+                            
+                            if using_av_model and NestedTensor is not None:
+                                # Create masks for both video and audio
+                                audio_mask = torch.ones(
+                                    (1, 1, audio_length, 1, 1),
+                                    dtype=torch.float32,
+                                    device=audio_latent.device,
+                                )
+                                output_latent["noise_mask"] = NestedTensor((video_mask, audio_mask))
+                            else:
+                                output_latent["noise_mask"] = video_mask
                     else:
                         # Other frames: add as guide
-                        positive, negative, output_latent = LTXVAddGuide.execute(
-                            positive=positive,
-                            negative=negative,
-                            vae=video_vae,
-                            latent=output_latent,
-                            image=img.unsqueeze(0),
-                            frame_idx=idx,
-                            strength=guide_strength,
-                        )
+                        # LTXVAddGuide only accepts video latents, so we must unpack if AV
+                        if using_av_model and NestedTensor is not None:
+                            # Extract video component
+                            current_video_samples = output_latent["samples"].tensors[0]
+                            temp_latent = {"samples": current_video_samples}
+                            if "noise_mask" in output_latent:
+                                temp_latent["noise_mask"] = output_latent["noise_mask"].tensors[0]
+                            
+                            # Run AddGuide on video component
+                            positive, negative, temp_latent = LTXVAddGuide.execute(
+                                positive=positive,
+                                negative=negative,
+                                vae=video_vae,
+                                latent=temp_latent,
+                                image=img.unsqueeze(0),
+                                frame_idx=idx,
+                                strength=guide_strength,
+                            )
+                            
+                            # Update video component in AV latent
+                            v_samples = temp_latent["samples"]
+                            a_samples = output_latent["samples"].tensors[1]
+                            output_latent["samples"] = NestedTensor((v_samples, a_samples))
+                            
+                            if "noise_mask" in temp_latent:
+                                v_mask = temp_latent["noise_mask"]
+                                if "noise_mask" in output_latent:
+                                    a_mask = output_latent["noise_mask"].tensors[1]
+                                else:
+                                    # Create default audio mask if missing
+                                    a_mask = torch.ones(
+                                        (1, 1, audio_length, 1, 1),
+                                        dtype=torch.float32,
+                                        device=a_samples.device,
+                                    )
+                                output_latent["noise_mask"] = NestedTensor((v_mask, a_mask))
+                        else:
+                            # Standard video-only case
+                            positive, negative, output_latent = LTXVAddGuide.execute(
+                                positive=positive,
+                                negative=negative,
+                                vae=video_vae,
+                                latent=output_latent,
+                                image=img.unsqueeze(0),
+                                frame_idx=idx,
+                                strength=guide_strength,
+                            )
             
             # Set conditioning and sample
             guider.set_conds(positive, negative)
@@ -327,6 +410,11 @@ Example:
             print("[SceneExtenderMVP] Extending existing video...")
             
             samples = latent["samples"]
+            # Handle AV latent (NestedTensor)
+            if NestedTensor is not None and isinstance(samples, NestedTensor):
+                print("[SceneExtenderMVP] AV latent detected - extending video component only")
+                samples = samples.tensors[0] # Video is index 0
+                
             batch, channels, frames, lat_height, lat_width = samples.shape
             overlap = frame_overlap // time_scale_factor
             
