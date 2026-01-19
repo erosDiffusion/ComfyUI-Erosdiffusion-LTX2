@@ -378,12 +378,14 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 
                 # Handle AV Model
                 if is_av_model and NestedTensor is not None and audio_vae is not None:
-                    audio_len = max(1, time_mgr.calculate_audio_latent_count(chunk_duration))
-                    if audio_len < 1: audio_len = 1
+                    audio_len = time_mgr.calculate_audio_latent_count(chunk_duration)
+                    if audio_len < 1:
+                        audio_len = 1
+                        print(f"    [DEBUG] NEW GEN: audio_len forced to 1")
                     
-                    # Get correct dimensions from VAE
-                    a_ch = getattr(audio_vae, "latent_channels", 128)
-                    a_freq = getattr(audio_vae, "latent_frequency_bins", 1)
+                    # Get correct dimensions from VAE (defaults match typical LTXAV values)
+                    a_ch = getattr(audio_vae, "latent_channels", 8)
+                    a_freq = getattr(audio_vae, "latent_frequency_bins", 16)
                     
                     audio_latent = torch.zeros(
                         [batch_size, a_ch, audio_len, a_freq], 
@@ -432,10 +434,14 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 
                 # AV Logic
                 if is_av_model and NestedTensor is not None and audio_vae is not None:
-                     audio_len = max(1, time_mgr.calculate_audio_latent_count(chunk_duration))
+                     # Calculate audio length with defensive minimum
+                     audio_len = time_mgr.calculate_audio_latent_count(chunk_duration)
+                     if audio_len < 1:
+                         audio_len = 1
+                         print(f"    [DEBUG] audio_len forced to 1 (was {time_mgr.calculate_audio_latent_count(chunk_duration)})")
                      
-                     a_ch = getattr(audio_vae, "latent_channels", 128)
-                     a_freq = getattr(audio_vae, "latent_frequency_bins", 1)
+                     a_ch = getattr(audio_vae, "latent_channels", 8)  # Default 8, not 128
+                     a_freq = getattr(audio_vae, "latent_frequency_bins", 16)  # Default 16
 
                      current_a = torch.zeros(
                          [batch_size, a_ch, audio_len, a_freq],
@@ -444,21 +450,18 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                      
                      audio_overlap = audio_overlap_frames
                      if prev_audio_src is not None:
-                          # Ensure dimensions match before copy
-                          a_src_ch = prev_audio_src.shape[-3] if prev_audio_src.ndim == 4 else prev_audio_src.shape[-4] # Handle Rank 4? T is -2
-                          # Audio Rank 4: [C, T, Freq] ? Or [B, C, T, Freq]?
-                          # Actually Audio Latent is [B, C, T, Freq].
-                          # My creation: [batch, a_ch, audio_len, a_freq].
+                          # Ensure prev_audio_src has batch dimension [B, C, T, F]
+                          if prev_audio_src.ndim == 3:
+                              prev_audio_src = prev_audio_src.unsqueeze(0)
                           
-                          # Clamp overlap
-                          a_copy_len = audio_overlap
-                          if a_copy_len > prev_audio_src.shape[2]: # Time dim 
-                               a_copy_len = prev_audio_src.shape[2]
-                          if a_copy_len > current_a.shape[2]: # Target T
-                               a_copy_len = current_a.shape[2]
-                               
-                          src_a = prev_audio_src[:, :, -a_copy_len:, :]
-                          current_a[:, :, :a_copy_len, :] = src_a
+                          # Safe clamp of copy length
+                          a_copy_len = min(audio_overlap, prev_audio_src.shape[2], current_a.shape[2])
+                          
+                          if a_copy_len > 0:
+                              src_a = prev_audio_src[:, :, -a_copy_len:, :]
+                              current_a[:, :, :a_copy_len, :] = src_a
+                          else:
+                              print(f"    [DEBUG] Skipping audio overlap copy (a_copy_len={a_copy_len})")
                      
                      nt = NestedTensor((current_v, current_a))
                      input_latent = {"samples": nt}
