@@ -143,7 +143,7 @@ class LTXVTimelineEditor:
                 # Resize
                 # Permute to [1, 3, H, W] for interpolate
                 img_p = img.movedim(-1, 1)
-                img_p = nodes.common_upscale(img_p, target_w, target_h, "lanczos", "disabled")
+                img_p = torch.nn.functional.interpolate(img_p, size=(target_h, target_w), mode="bilinear", align_corners=False)
                 img_p = img_p.movedim(1, -1)
                 final_list.append(img_p)
             else:
