@@ -412,12 +412,16 @@ class LTXVTimelineEditor {
                 mel.style.left = (mf.time / this.duration) * 100 + "%";
                 if (this.selection.frameId === mf.id) mel.classList.add("selected");
 
+                // Add drag handler
+                mel.onmousedown = (e) => this.startDragMid(e, s, mf);
+
                 // Tooltip time
                 const tt = document.createElement("div");
                 tt.className = "ltxv-time-label";
                 tt.innerText = mf.time.toFixed(1) + "s";
                 mel.appendChild(tt);
 
+                mel.onmousedown = (e) => this.startDragMid(e, s, mf);
                 mel.onclick = (e) => {
                     this.selection = { sceneId: s.id, frameId: mf.id };
                     this.render(); this.renderProps();
@@ -431,12 +435,122 @@ class LTXVTimelineEditor {
                 const h = document.createElement("div");
                 h.className = "ltxv-cut-handle";
                 h.style.left = (s.end / this.duration) * 100 + "%";
-                // Add dragging logic if needed
+                h.dataset.cutIdx = idx; // Store index for direct updates
+
+                // Time Label
+                const tl = document.createElement("div");
+                tl.className = "ltxv-time-label";
+                tl.innerText = s.end.toFixed(1) + "s";
+                h.appendChild(tl);
+
+                h.onmousedown = (e) => this.startDragCut(e, idx, h);
                 this.track.appendChild(h);
             }
         });
 
         this.renderProps();
+    }
+
+    // --- DRAGGING HANDLERS ---
+
+    startDragCut(e, idx, handleEl) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.altKey) {
+            this.mergeScenes(idx);
+            return;
+        }
+        // Store references for direct DOM updates
+        const leftScene = this.scenes[idx];
+        const rightScene = this.scenes[idx + 1];
+        const leftEl = this.track.querySelectorAll('.ltxv-scene-block')[idx];
+        const rightEl = this.track.querySelectorAll('.ltxv-scene-block')[idx + 1];
+        const timeLabel = handleEl.querySelector('.ltxv-time-label');
+
+        this.dragState = { type: 'cut', idx, handleEl, leftScene, rightScene, leftEl, rightEl, timeLabel };
+        this.setupDragListeners();
+    }
+
+    startDragMid(e, scene, mf) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Find the marker element
+        const markers = this.track.querySelectorAll('.ltxv-mid-marker');
+        let markerEl = null;
+        markers.forEach(m => {
+            const tl = m.querySelector('.ltxv-time-label');
+            if (tl && Math.abs(parseFloat(tl.innerText) - mf.time) < 0.01) markerEl = m;
+        });
+        const timeLabel = markerEl ? markerEl.querySelector('.ltxv-time-label') : null;
+        this.dragState = { type: 'mid', scene, mf, markerEl, timeLabel };
+        this.setupDragListeners();
+    }
+
+    setupDragListeners() {
+        document.body.style.cursor = 'ew-resize';
+        const move = (e) => {
+            const rect = this.track.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let time = (x / rect.width) * this.duration;
+
+            if (this.dragState.type === 'cut') {
+                const { leftScene, rightScene, handleEl, leftEl, rightEl, timeLabel } = this.dragState;
+                const min = leftScene.start + 0.2;
+                const max = rightScene.end - 0.2;
+                if (time < min) time = min;
+                if (time > max) time = max;
+
+                // Update data model
+                leftScene.end = time;
+                rightScene.start = time;
+
+                // Update DOM directly (no full render)
+                const pct = (time / this.duration) * 100;
+                handleEl.style.left = pct + '%';
+                if (timeLabel) timeLabel.innerText = time.toFixed(1) + 's';
+
+                // Update scene block widths
+                if (leftEl) {
+                    leftEl.style.width = ((leftScene.end - leftScene.start) / this.duration) * 100 + '%';
+                }
+                if (rightEl) {
+                    rightEl.style.left = pct + '%';
+                    rightEl.style.width = ((rightScene.end - rightScene.start) / this.duration) * 100 + '%';
+                }
+            } else if (this.dragState.type === 'mid') {
+                const { scene, mf, markerEl, timeLabel } = this.dragState;
+                if (time < scene.start + 0.1) time = scene.start + 0.1;
+                if (time > scene.end - 0.1) time = scene.end - 0.1;
+                mf.time = time;
+
+                // Update DOM directly
+                if (markerEl) markerEl.style.left = (time / this.duration) * 100 + '%';
+                if (timeLabel) timeLabel.innerText = time.toFixed(1) + 's';
+            }
+        };
+        const up = () => {
+            document.body.style.cursor = '';
+            window.removeEventListener('mousemove', move);
+            window.removeEventListener('mouseup', up);
+            this.dragState = null;
+            // Final render to sync everything
+            this.render();
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+    }
+
+    mergeScenes(idx) {
+        const left = this.scenes[idx];
+        const right = this.scenes[idx + 1];
+
+        left.end = right.end;
+        left.endImg = right.endImg;
+        left.hardCutEnd = right.hardCutEnd;
+        left.middleFrames = [...left.middleFrames, ...right.middleFrames];
+
+        this.scenes.splice(idx + 1, 1);
+        this.render();
     }
 
     handleSceneClick(e, s) {

@@ -379,6 +379,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 # Handle AV Model
                 if is_av_model and NestedTensor is not None and audio_vae is not None:
                     audio_len = max(1, time_mgr.calculate_audio_latent_count(chunk_duration))
+                    if audio_len < 1: audio_len = 1
                     
                     # Get correct dimensions from VAE
                     a_ch = getattr(audio_vae, "latent_channels", 128)
