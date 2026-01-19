@@ -7,23 +7,27 @@ timestamped prompts, and image guides.
 
 from .scene_extender import LTXVSceneExtender
 from .scene_extender_mvp import LTXVSceneExtenderMVP
+from .timeline_editor import LTXVTimelineEditor
 
 # V3 API: Export nodes using NODES class variable
 NODES = [
     LTXVSceneExtender,
     LTXVSceneExtenderMVP,
+    LTXVTimelineEditor,
 ]
 
 # Node class mappings for ComfyUI discovery (legacy compatibility)
 NODE_CLASS_MAPPINGS = {
     "LTXVSceneExtender": LTXVSceneExtender,
     "LTXVSceneExtenderMVP": LTXVSceneExtenderMVP,
+    "LTXVTimelineEditor": LTXVTimelineEditor,
 }
 
 # Display name mappings (legacy compatibility)
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LTXVSceneExtender": "💜 LTXV Scene Extender ErosDiffusion",
     "LTXVSceneExtenderMVP": "💜 LTXV Scene Extender (MVP) ErosDiffusion",
+    "LTXVTimelineEditor": "💜 LTXV Timeline Editor",
 }
 
 # Web directory for frontend components
