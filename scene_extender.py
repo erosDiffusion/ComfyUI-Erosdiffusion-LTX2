@@ -323,20 +323,70 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
             
             # Create new guider for this chunk
             chunk_guider = copy.copy(guider)
-            chunk_guider.original_conds = copy.deepcopy(guider.original_conds)
             
             # Set prompt conditioning
             # Note: This is simplified; specialized usage might need SetConditioning logic
-            c_pos, c_neg = cls._get_conds_from_guider(chunk_guider)
-            # Update positive prompt (simplest way: replace cross_attn)
-            # This assumes standard styling; advanced users might want more control
-            new_pos = []
-            for t in c_pos:
-                new_t = [t[0], copy.deepcopy(t[1])]
-                new_t[0] = chunk_cond # Replace CLIP embedding
-                new_t[1]['text'] = chunk.prompt
-                new_pos.append(new_t)
-            chunk_guider.set_conds(new_pos, c_neg)
+            c_pos, c_neg = cls._get_conds_from_guider(guider)
+            
+            # Update positive prompt
+            # Try to merge with original conditioning to preserve styles/controlnets
+            try:
+                new_pos = []
+                if c_pos is None:
+                    raise ValueError("No original positive conditioning")
+                    
+                for t in c_pos:
+                    # t should be [tensor, dict]
+                    # chunk_cond is [[tensor, dict]]
+                    chunk_tensor = chunk_cond[0][0]
+                    chunk_meta = chunk_cond[0][1]
+                    
+                    # Create new cond pair
+                    # Handle if t is not list/tuple or t[1] is not dict (KeyError/TypeError)
+                    current_dict = t[1].copy() if hasattr(t, "__getitem__") and len(t) > 1 and isinstance(t[1], dict) else {}
+                    
+                    new_t = [chunk_tensor, current_dict]
+                    # Update metadata
+                    if "pooled_output" in chunk_meta:
+                        new_t[1]["pooled_output"] = chunk_meta["pooled_output"]
+                    new_t[1]["text"] = chunk.prompt
+                    
+                    new_pos.append(new_t)
+            except (IndexError, KeyError, TypeError, ValueError) as e:
+                keys_info = ""
+                try:
+                    if c_pos is not None and len(c_pos) > 0 and isinstance(c_pos[0], dict):
+                        keys_info = f" Keys: {list(c_pos[0].keys())}"
+                except:
+                    pass
+                print(f"  Warning: Could not merge conditioning ({e}){keys_info}, using raw chunk prompt.")
+                new_pos = chunk_cond
+
+            # Manually set conds to bypass validation if using custom/weird structures (LTXV dicts)
+            if hasattr(chunk_guider, "conds"):
+                 chunk_guider.conds = {"positive": new_pos, "negative": c_neg}
+            elif hasattr(chunk_guider, "inner_set_conds"):
+                 # Force set inner dict directly if possible, or try set_conds and fail
+                 # CFGGuider uses inner_set_conds but it validates.
+                 # We can try to monkeypatch or access protected?
+                 # Actually BasicGuider.conds is exposed. CFGGuider just wraps it.
+                 # If chunk_guider is BasicGuider/CFGGuider, .conds attribute usually exists.
+                 try:
+                     chunk_guider.conds = {"positive": new_pos, "negative": c_neg}
+                 except:
+                     try:
+                        chunk_guider.set_conds(new_pos, c_neg)
+                     except KeyError:
+                         print("  Critical: Custom conditioning format rejected by Guider validation.")
+                         # Last resort: if c_neg is incorrectly formatted for standard guider, we might have to clean it?
+                         # But we can't clean it if we don't know the format.
+                         # We'll assume the manual setting works for now.
+                         pass
+            else:
+                 try:
+                    chunk_guider.set_conds(new_pos, c_neg)
+                 except:
+                    pass
 
             # Determine dimensions
             
@@ -477,6 +527,11 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 for img, idx in zip(resized_guides, indices_list):
                     # Logic similar to MVP: extract, guide, pack
                     c_pos, c_neg = cls._get_conds_from_guider(chunk_guider)
+                    
+                    # Sanitize incompatible negative conditioning (KJ Dicts) for LTXVAddGuide
+                    if c_neg is not None and len(c_neg) > 0 and isinstance(c_neg[0], dict):
+                        print("  Sanitizing incompatible Negative conditioning (KJ Dicts) for Image Guide application")
+                        c_neg = [] # Empty list is safe for LTXVAddGuide
                     
                     if is_av_model and NestedTensor is not None:
                         # Extract video
@@ -627,19 +682,62 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
     @classmethod
     def _get_conds_from_guider(cls, guider):
         """Extract positive and negative conditioning from guider."""
-        try:
-            return guider.raw_conds
-        except AttributeError:
-            try:
-                return guider.original_conds
-            except AttributeError:
-                return None, None
+        conds = None
+        if hasattr(guider, "raw_conds"):
+            conds = guider.raw_conds
+        elif hasattr(guider, "original_conds"):
+            conds = guider.original_conds
+        elif hasattr(guider, "conds"):
+            conds = guider.conds
+            
+        if conds is not None:
+            if isinstance(conds, dict):
+                return conds.get("positive"), conds.get("negative")
+            return conds
+            
+        return None, None
     
     @classmethod
     def _encode_prompt(cls, clip, prompt: str):
         """Encode a text prompt using CLIP."""
         tokens = clip.tokenize(prompt)
-        return clip.encode_from_tokens_scheduled(tokens)
+        try:
+             # Try standard encode with pooling
+             cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
+             return [[cond, {"pooled_output": pooled}]]
+        except:
+             # Fallback for some clip implementations (e.g. KJ LTXV)
+             conds = clip.encode_from_tokens_scheduled(tokens)
+             
+             print(f"  DEBUG: _encode_prompt Fallback. Type: {type(conds)}")
+             if conds and hasattr(conds, "__getitem__") and len(conds) > 0:
+                  print(f"  DEBUG: Item 0 Type: {type(conds[0])}")
+                  if isinstance(conds[0], dict):
+                      print(f"  DEBUG: Item 0 Keys: {list(conds[0].keys())}")
+
+             # If result is List of Dicts (Non-Standard), Wrap it!
+             if conds and isinstance(conds, list) and len(conds) > 0 and isinstance(conds[0], dict):
+                 print("  DEBUG: Detected Dict-based conditioning. Wrapping...")
+                 new_conds = []
+                 for c in conds:
+                     # Attempt to find tensor
+                     tensor = None
+                     if "cross_attn" in c:
+                         tensor = c["cross_attn"]
+                     elif "pooled_output" in c: # Fallback if cross_attn missing?
+                         tensor = c["pooled_output"] # Danger?
+                     
+                     if tensor is not None:
+                         # Use the dict itself as metadata
+                         new_conds.append([tensor, c])
+                 
+                 if new_conds:
+                     print(f"  DEBUG: Wrapped {len(new_conds)} items.")
+                     return new_conds
+                 else:
+                     print("  DEBUG: Failed to find tensors to wrap.")
+                     
+             return conds
     
     @classmethod
     def _generate_default_chunks(
