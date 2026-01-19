@@ -413,9 +413,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                         device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
                     )
                     
-                    print(f"DEBUG: First Chunk - Video Shape: {video_latent.shape}, Audio Shape: {audio_latent.shape}")
                     nt = NestedTensor((video_latent, audio_latent))
-                    print(f"DEBUG: First Chunk - NestedTensor Audio Shape: {nt.tensors[1].shape}")
                     input_latent = {"samples": nt}
                 else:
                     input_latent = {"samples": video_latent}
@@ -491,11 +489,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                     # Audio doesn't have "Latent Guide" traditionally but masking works.
                     amask[:, :, :audio_overlap] = 1.0 - temporal_cond_strength
                     
-                    print(f"DEBUG: Mask Shape: {mask.shape}, Amask Shape: {amask.shape}")
-                    nt_mask = NestedTensor((mask, amask))
-                    print(f"DEBUG: NestedTensor Tensors Shapes: {[t.shape for t in nt_mask.tensors]}")
-                    
-                    input_latent["noise_mask"] = nt_mask
+                    input_latent["noise_mask"] = NestedTensor((mask, amask))
                 else:
                     input_latent["noise_mask"] = mask
                 
@@ -640,7 +634,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
         return io.NodeOutput(
             combined,
             video_out,
-            audio_output,
+            audio_out,
             positive, # Return last conds
             negative
         )
