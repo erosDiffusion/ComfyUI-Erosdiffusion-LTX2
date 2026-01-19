@@ -157,7 +157,6 @@ class LTXVSceneExtender(io.ComfyNode):
                     step=32,
                     tooltip="Output video height"
                 ),
-                io.Int.Input("batch_size", default=1, min=1, max=4096),
                 
                 # === Scene Script ===
                 io.String.Input(
@@ -254,7 +253,6 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
         video_fps: float,
         width: int,
         height: int,
-        batch_size: int,
         scene_script: str,
         guide_strength: float,
         audio_overlap_duration: float,
@@ -268,6 +266,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
         latent=None,
         guide_images=None,
     ) -> io.NodeOutput:
+        batch_size = 1 # Hardcoded
         """Execute the scene extension."""
         
         # Check if we have an audio-video model
@@ -393,19 +392,21 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                     prev_video = prev_samples
                     prev_audio_src = None
                 
-                # Copy Overlap
+                # Copy Overlap (Robust)
                 video_overlap = video_overlap_frames
                 if video_overlap > prev_video.shape[2]:
                      video_overlap = prev_video.shape[2]
+                if video_overlap > latent_length: # Clamp to new chunk size
+                     video_overlap = latent_length
                      
-                src_v = prev_video[:, :, -video_overlap:, :, :]
+                src_v = prev_video[..., -video_overlap:, :, :]
                 
                 # Allocate New
                 current_v = torch.zeros(
                     [batch_size, 128, latent_length, latent_height, latent_width],
                     device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
                 )
-                current_v[:, :, :src_v.shape[2], :, :] = src_v
+                current_v[:, :, :video_overlap, :, :] = src_v
                 
                 # AV Logic
                 if is_av_model and NestedTensor is not None and audio_vae is not None:
@@ -421,12 +422,21 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                      
                      audio_overlap = audio_overlap_frames
                      if prev_audio_src is not None:
-                          # Ensure dimensions match before copy (if VAE changed? Unlikely)
-                          if prev_audio_src.shape[1] == a_ch:
-                              if audio_overlap > prev_audio_src.shape[2]:
-                                  audio_overlap = prev_audio_src.shape[2]
-                              src_a = prev_audio_src[:, :, -audio_overlap:, :]
-                              current_a[:, :, :src_a.shape[2], :] = src_a
+                          # Ensure dimensions match before copy
+                          a_src_ch = prev_audio_src.shape[-3] if prev_audio_src.ndim == 4 else prev_audio_src.shape[-4] # Handle Rank 4? T is -2
+                          # Audio Rank 4: [C, T, Freq] ? Or [B, C, T, Freq]?
+                          # Actually Audio Latent is [B, C, T, Freq].
+                          # My creation: [batch, a_ch, audio_len, a_freq].
+                          
+                          # Clamp overlap
+                          a_copy_len = audio_overlap
+                          if a_copy_len > prev_audio_src.shape[2]: # Time dim 
+                               a_copy_len = prev_audio_src.shape[2]
+                          if a_copy_len > current_a.shape[2]: # Target T
+                               a_copy_len = current_a.shape[2]
+                               
+                          src_a = prev_audio_src[:, :, -a_copy_len:, :]
+                          current_a[:, :, :a_copy_len, :] = src_a
                      
                      nt = NestedTensor((current_v, current_a))
                      input_latent = {"samples": nt}
