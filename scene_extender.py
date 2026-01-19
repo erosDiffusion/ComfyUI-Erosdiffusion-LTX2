@@ -356,12 +356,16 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                     device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
                 )
                 
-                # AV Handling
-                if is_av_model and NestedTensor is not None:
+                # Handle AV Model
+                if is_av_model and NestedTensor is not None and audio_vae is not None:
                     audio_len = time_mgr.calculate_audio_latent_count(chunk_duration)
-                    # FIX: 4D Audio
+                    
+                    # Get correct dimensions from VAE
+                    a_ch = getattr(audio_vae, "latent_channels", 128)
+                    a_freq = getattr(audio_vae, "latent_frequency_bins", 1)
+                    
                     audio_latent = torch.zeros(
-                        [batch_size, 128, audio_len, 1], 
+                        [batch_size, a_ch, audio_len, a_freq], 
                         device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
                     )
                     
@@ -376,6 +380,7 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                     input_latent["noise_mask"] = nt_mask
                 else:
                     input_latent = {"samples": video_latent, "noise_mask": video_mask}
+                    # If audio_vae missing, we skip audio latent creation
                     
             else:
                 # EXTENSION
@@ -403,19 +408,25 @@ Guide refs: $0, $1, etc. reference guide_images batch by index"""
                 current_v[:, :, :src_v.shape[2], :, :] = src_v
                 
                 # AV Logic
-                if is_av_model and NestedTensor is not None:
+                if is_av_model and NestedTensor is not None and audio_vae is not None:
                      audio_len = time_mgr.calculate_audio_latent_count(chunk_duration)
+                     
+                     a_ch = getattr(audio_vae, "latent_channels", 128)
+                     a_freq = getattr(audio_vae, "latent_frequency_bins", 1)
+
                      current_a = torch.zeros(
-                         [batch_size, 128, audio_len, 1], # 4D Fix
+                         [batch_size, a_ch, audio_len, a_freq],
                          device=mm.intermediate_device() if COMFY_AVAILABLE else "cpu"
                      )
                      
                      audio_overlap = audio_overlap_frames
                      if prev_audio_src is not None:
-                          if audio_overlap > prev_audio_src.shape[2]:
-                              audio_overlap = prev_audio_src.shape[2]
-                          src_a = prev_audio_src[:, :, -audio_overlap:, :]
-                          current_a[:, :, :src_a.shape[2], :] = src_a
+                          # Ensure dimensions match before copy (if VAE changed? Unlikely)
+                          if prev_audio_src.shape[1] == a_ch:
+                              if audio_overlap > prev_audio_src.shape[2]:
+                                  audio_overlap = prev_audio_src.shape[2]
+                              src_a = prev_audio_src[:, :, -audio_overlap:, :]
+                              current_a[:, :, :src_a.shape[2], :] = src_a
                      
                      nt = NestedTensor((current_v, current_a))
                      input_latent = {"samples": nt}
