@@ -2,7 +2,7 @@
 
 **Repository:** ComfyUI-Erosdiffusion-LTX2  
 **Generated:** 2026-01-20T12:46:31+01:00  
-**Total Commits:** 21
+**Total Commits:** 23
 
 ---
 
@@ -11,7 +11,7 @@
 | Type | Commits |
 |------|---------|
 | Stable | [07_9528dde](commits/07_9528dde.md), [19_d9afdd0](commits/19_d9afdd0.md) |
-| HEAD | [21_952ee47](commits/21_952ee47.md) |
+| HEAD | [23_d3be0e6](commits/23_d3be0e6.md) |
 | Audio Broken | [11_a772d9b](commits/11_a772d9b.md) |
 
 ---
@@ -40,7 +40,9 @@
 | 18 | [2b39ee2](commits/18_2b39ee2.md) | 23:14 | before rewrite | Checkpoint |
 | 19 | [d9afdd0](commits/19_d9afdd0.md) | 23:36 | video working | **STABLE** |
 | 20 | [cecc49d](commits/20_cecc49d.md) | 23:58 | tensor fix | Fix |
-| 21 | [952ee47](commits/21_952ee47.md) | 23:59 | work in progess gui change | HEAD (WIP) |
+| 21 | [952ee47](commits/21_952ee47.md) | 23:59 | work in progess gui change | WIP |
+| 22 | [3729f85](commits/22_3729f85.md) | 13:27 | introduced skill and reviewer | Infrastructure |
+| 23 | [d3be0e6](commits/23_d3be0e6.md) | 13:36 | added workflow for skill | **HEAD** |
 
 ---
 

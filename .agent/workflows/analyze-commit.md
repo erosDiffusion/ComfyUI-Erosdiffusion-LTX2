@@ -32,3 +32,17 @@ git log --oneline HEAD -1
 5. Update `bot-analysis/INDEX.md` with the new commit row.
 
 6. Report summary of what was documented.
+
+## Exclusions
+
+To avoid self-referential loops, **skip analysis entirely** for commits that ONLY touch:
+- `bot-analysis/` - Documentation output folder (analysis output)
+
+**Note:** Changes to `.agent/` (skills, workflows) SHOULD be tracked as features.
+
+**Behavior:**
+1. Check files changed in commit with `git diff --name-only HEAD~1..HEAD`
+2. If ALL files are in `bot-analysis/`, report "No analysis needed (documentation-only commit)" and exit
+3. Otherwise, proceed with full analysis
+
+
