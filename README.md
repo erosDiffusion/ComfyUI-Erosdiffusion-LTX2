@@ -2,7 +2,7 @@
 > This is a **pre-alpha** node. 
 > It is **not stable** and ** **in progress** and not meant for usage.
 > At the moment it's also broken.
-> I am only sharing upon request in the banodoco server and for timeline editor node for [VrGameGirl](https://github.com/vrgamegirl19/comfyui-vrgamedevgirl) to possibly integrate in a workflow.
+> I am only sharing upon request in the banodoco server and for timeline editor node for [vrgamedevgirl](https://github.com/vrgamegirl19/comfyui-vrgamedevgirl) to possibly integrate in a workflow.
 
 # ComfyUI-Erosdiffusion-LTX2
 
