@@ -1,3 +1,7 @@
+**this is a pre-alpha node. 
+not stable and not meant for usage. at the moment it's also broken.
+only sharing for the timeline editor. within the banodoco discord**
+
 # ComfyUI-Erosdiffusion-LTX2
 
 Custom ComfyUI nodes for extending video scenes with synchronized audio generation using LTXAVModel.
