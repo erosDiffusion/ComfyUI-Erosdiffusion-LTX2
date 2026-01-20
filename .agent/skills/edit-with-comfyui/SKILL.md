@@ -12,9 +12,21 @@ Specialized skill for editing existing images using ComfyUI and Qwen 2.5VL. Supp
 ## Trigger
 
 Use this skill when:
-- User wants to modify an existing image
-- User requests camera changes on a generated image
-- Image analysis is needed to guide specific edits
+- User wants to modify an existing image (default: Flux Edit)
+- User requests camera changes, stylization, or object manipulation
+- User mentions "qwen" specifically (triggers Qwen Edit)
+
+> [!NOTE]
+> Trigger words like "qwen edit:" or "qwen:" are used only for template selection and are automatically stripped from the prompt before being submitted to ComfyUI.
+
+## Workflow Templates
+
+1.  **Flux Edit (Default)**: `antigravity - movie - flux2edit.json`
+    -   Target Node for Prompt: `109` (CLIPTextEncode)
+    -   Target Node for Image: `115` (LoadImageFromUrl)
+2.  **Qwen Edit**: `movie 1.1 - qwen image edit antigravity.json`
+    -   Target Node for Prompt: `68` (TextEncodeQwenImageEditPlus)
+    -   Target Node for Image: `117` or `41` (LoadImageFromUrl / LoadImage)
 
 ## Prerequisites
 

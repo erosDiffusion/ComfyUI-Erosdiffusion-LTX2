@@ -1,9 +1,40 @@
 {
   "error": {
-    "type": "invalid_prompt",
-    "message": "Cannot execute because node Note does not exist.",
-    "details": "Node ID '#72'",
+    "type": "prompt_outputs_failed_validation",
+    "message": "Prompt outputs failed validation",
+    "details": "",
     "extra_info": {}
   },
-  "node_errors": {}
+  "node_errors": {
+    "107": {
+      "errors": [
+        {
+          "type": "exception_during_inner_validation",
+          "message": "Exception when validating inner node",
+          "details": "'112'",
+          "extra_info": {
+            "input_name": "guider",
+            "input_config": [
+              "GUIDER",
+              {}
+            ],
+            "exception_message": "'112'",
+            "exception_type": "KeyError",
+            "traceback": [
+              "  File \"D:\\ComfyUI7\\ComfyUI\\execution.py\", line 838, in validate_inputs\n    r = await validate_inputs(prompt_id, prompt, o_id, validated)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n",
+              "  File \"D:\\ComfyUI7\\ComfyUI\\execution.py\", line 818, in validate_inputs\n    o_class_type = prompt[o_id]['class_type']\n                   ~~~~~~^^^^^^\n"
+            ],
+            "linked_node": [
+              "107",
+              0
+            ]
+          }
+        }
+      ],
+      "dependent_outputs": [
+        "9"
+      ],
+      "class_type": "CFGGuider"
+    }
+  }
 }

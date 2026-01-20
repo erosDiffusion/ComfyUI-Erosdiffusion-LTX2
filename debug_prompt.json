@@ -1,305 +1,186 @@
 {
-  "61": {
-    "class_type": "CLIPLoader",
+  "99": {
+    "class_type": "KSamplerSelect",
     "inputs": {
-      "clip_name": "qwen\\qwen_2.5_vl_7b_fp8_scaled.safetensors",
-      "type": "qwen_image",
-      "device": "default"
+      "sampler_name": "euler"
     }
   },
-  "10": {
-    "class_type": "VAELoader",
+  "100": {
+    "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "vae_name": "qwen_image_vae.safetensors"
-    }
-  },
-  "12": {
-    "class_type": "UNETLoader",
-    "inputs": {
-      "unet_name": "qwen_image_edit_2511_fp8_e4m3fn_scaled_lightning_comfyui.safetensors",
-      "weight_dtype": "default"
-    }
-  },
-  "74": {
-    "class_type": "LoraLoaderModelOnly",
-    "inputs": {
-      "lora_name": "qwen\\qwen-image-edit-2511-multiple-angles-lora.safetensors",
-      "strength_model": 1,
-      "model": [
-        "12",
-        0
-      ]
-    }
-  },
-  "94": {
-    "class_type": "PathchSageAttentionKJ",
-    "inputs": {
-      "sage_attention": "auto",
-      "allow_compile": true,
-      "model": [
-        "64",
-        0
-      ]
-    }
-  },
-  "87": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "wooden_chair.png"
-    }
-  },
-  "83": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "texture_fur.png"
-    }
-  },
-  "8": {
-    "class_type": "VAEDecode",
-    "inputs": {
-      "samples": [
-        "65",
+      "noise": [
+        "102",
         0
       ],
-      "vae": [
-        "10",
-        0
-      ]
-    }
-  },
-  "65": {
-    "class_type": "KSampler",
-    "inputs": {
-      "seed": 1006887500272381,
-      "steps": 4,
-      "cfg": 1,
-      "sampler_name": "euler_ancestral",
-      "scheduler": "FlowMatchEulerDiscreteScheduler",
-      "denoise": 1,
-      "model": [
-        "94",
+      "guider": [
+        "107",
         0
       ],
-      "positive": [
-        "70",
+      "sampler": [
+        "99",
         0
       ],
-      "negative": [
-        "71",
+      "sigmas": [
+        "108",
         0
       ],
       "latent_image": [
-        "75",
+        "105",
         0
       ]
     }
   },
-  "96": {
-    "class_type": "PreviewImage",
+  "101": {
+    "class_type": "VAEDecode",
     "inputs": {
-      "images": [
-        "95",
+      "samples": [
+        "100",
+        0
+      ],
+      "vae": [
+        "104",
         0
       ]
     }
   },
   "102": {
-    "class_type": "EmptyImage",
+    "class_type": "RandomNoise",
     "inputs": {
-      "width": 1280,
-      "height": 720,
-      "batch_size": 1,
-      "color": 0
+      "noise_seed": 682218736869185
     }
   },
-  "75": {
-    "class_type": "VAEEncode",
+  "103": {
+    "class_type": "CLIPLoader",
     "inputs": {
-      "pixels": [
-        "113",
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "default"
+    }
+  },
+  "104": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    }
+  },
+  "105": {
+    "class_type": "EmptyFlux2LatentImage",
+    "inputs": {
+      "width": [
+        "111",
         0
       ],
-      "vae": [
-        "10",
+      "height": [
+        "111",
+        1
+      ],
+      "batch_size": 1
+    }
+  },
+  "106": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "megapixels": 1,
+      "resolution_steps": 1,
+      "image": [
+        "115",
         0
       ]
     }
   },
-  "100": {
-    "class_type": "Any Switch (rgthree)",
+  "107": {
+    "class_type": "CFGGuider",
     "inputs": {
-      "any_01": [
-        "117",
+      "cfg": 1,
+      "model": [
+        "114",
         0
       ],
-      "any_02": [
-        "102",
+      "positive": [
+        "112",
+        0
+      ],
+      "negative": [
+        "112",
+        1
+      ]
+    }
+  },
+  "108": {
+    "class_type": "Flux2Scheduler",
+    "inputs": {
+      "steps": 4,
+      "width": [
+        "111",
+        0
+      ],
+      "height": [
+        "111",
+        1
+      ]
+    }
+  },
+  "109": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "change the camera to right view, transform into loose charchoal concept art on sepia paper with white crayon highlights, remove the background. transform the cross shaped patcho on the shoulder into a skull decal, make the monitor oval shape. zoom on the bust and head",
+      "clip": [
+        "103",
+        0
+      ]
+    }
+  },
+  "110": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "109",
+        0
+      ]
+    }
+  },
+  "111": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "106",
         0
       ]
     }
   },
   "113": {
-    "class_type": "Any Switch (rgthree)",
+    "class_type": "UNETLoader",
     "inputs": {
-      "any_01": [
-        "79",
-        0
-      ],
-      "any_02": [
-        "100",
-        0
-      ]
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
     }
   },
-  "41": {
-    "class_type": "LoadImage",
+  "114": {
+    "class_type": "PathchSageAttentionKJ",
     "inputs": {
-      "image": "nunchaku-yzima-lora_00045_.png"
+      "sage_attention": "auto",
+      "allow_compile": true,
+      "model": [
+        "113",
+        0
+      ]
     }
   },
   "9": {
     "class_type": "SaveImage",
     "inputs": {
-      "filename_prefix": "ComfyUI-qwenedit-2511-camera-angle",
+      "filename_prefix": "Flux2-Klein",
       "images": [
-        "8",
+        "101",
         0
       ]
     }
   },
-  "69": {
-    "class_type": "TextEncodeQwenImageEditPlus",
-    "inputs": {
-      "prompt": "",
-      "clip": [
-        "61",
-        0
-      ],
-      "vae": [
-        "10",
-        0
-      ],
-      "image1": [
-        "79",
-        0
-      ],
-      "image2": [
-        "83",
-        0
-      ],
-      "image3": [
-        "87",
-        0
-      ]
-    }
-  },
-  "68": {
-    "class_type": "TextEncodeQwenImageEditPlus",
-    "inputs": {
-      "prompt": "transform the turtle into a majestic red dragon",
-      "clip": [
-        "61",
-        0
-      ],
-      "vae": [
-        "10",
-        0
-      ],
-      "image1": [
-        "79",
-        0
-      ],
-      "image2": [
-        "83",
-        0
-      ],
-      "image3": [
-        "87",
-        0
-      ]
-    }
-  },
-  "67": {
-    "class_type": "ModelSamplingAuraFlow",
-    "inputs": {
-      "shift": 3.1,
-      "model": [
-        "74",
-        0
-      ]
-    }
-  },
-  "64": {
-    "class_type": "CFGNorm",
-    "inputs": {
-      "strength": 1,
-      "model": [
-        "67",
-        0
-      ]
-    }
-  },
-  "71": {
-    "class_type": "FluxKontextMultiReferenceLatentMethod",
-    "inputs": {
-      "reference_latents_method": "index_timestep_zero",
-      "conditioning": [
-        "69",
-        0
-      ]
-    }
-  },
-  "70": {
-    "class_type": "FluxKontextMultiReferenceLatentMethod",
-    "inputs": {
-      "reference_latents_method": "index_timestep_zero",
-      "conditioning": [
-        "68",
-        0
-      ]
-    }
-  },
-  "79": {
-    "class_type": "ImageScaleToTotalPixels",
-    "inputs": {
-      "upscale_method": "lanczos",
-      "megapixels": 1.6,
-      "resolution_steps": 1,
-      "image": [
-        "95",
-        0
-      ]
-    }
-  },
-  "72": {
-    "class_type": "Note",
-    "inputs": {}
-  },
-  "95": {
-    "class_type": "ImageResizeKJv2",
-    "inputs": {
-      "width": 720,
-      "height": 408,
-      "upscale_method": "lanczos",
-      "keep_proportion": "crop",
-      "pad_color": "0, 0, 0",
-      "crop_position": "center",
-      "divisible_by": 32,
-      "device": "cpu",
-      "image": [
-        "117",
-        0
-      ]
-    }
-  },
-  "90": {
-    "class_type": "Note",
-    "inputs": {}
-  },
-  "117": {
+  "115": {
     "class_type": "LoadImageFromUrl",
     "inputs": {
-      "image": "http://127.0.0.1:8188/api/view?type=input&filename=nunchaku-yzima-lora_00045_.png&subfolder=&rand=0.542317668212935",
+      "image": "http://127.0.0.1:8188/api/view?type=input&filename=ComfyUI-qwenedit-2511-camera-angle_00062_.png&subfolder=&rand=0.8341049419512896",
       "keep_alpha_channel": false,
       "output_mode": false,
       "upload": "image"

@@ -9,7 +9,8 @@ import sys
 
 # Configuration
 COMFYUI_URL = "http://127.0.0.1:8188"
-WORKFLOW_PATH = r"D:\ComfyUI7\ComfyUI\user\default\workflows\movie 1.1 - qwen image edit antigravity.json"
+DEFAULT_WORKFLOW = r"D:\ComfyUI7\ComfyUI\user\default\workflows\antigravity - movie - flux2edit.json"
+QWEN_WORKFLOW = r"D:\ComfyUI7\ComfyUI\user\default\workflows\movie 1.1 - qwen image edit antigravity.json"
 OUTPUT_DIR = r"D:\ComfyUI7\ComfyUI\output"
 INPUT_DIR = r"D:\ComfyUI7\ComfyUI\input"
 
@@ -93,11 +94,14 @@ def convert_to_api_format(workflow, prompt_text=None, image_filename=None):
             node_info_cache[node_type] = get_node_info(node_type)
         node_def = node_info_cache[node_type]
         
-        # If we couldn't get node info, it might be a custom node not installed or a UI node
+        # If we couldn't get node info, it might be a custom node or a group node.
+        # ComfyUI doesn't execute group nodes in the backend; they must be skipped.
+        # Custom group nodes often have UUID-like names or don't return type info.
         if not node_def:
-            print(f"Warning: Skipping node {node_id} ({node_type}) - no definition found.")
-            continue
-            
+             # If it's not a known executable class, skip it
+             print(f"Warning: Skipping node {node_id} ({node_type}) - potentially a non-executable group or custom node.")
+             continue
+             
         required_inputs = node_def.get("input", {}).get("required", {})
         optional_inputs = node_def.get("input", {}).get("optional", {})
         all_input_defs = {**required_inputs, **optional_inputs}
@@ -144,28 +148,46 @@ def convert_to_api_format(workflow, prompt_text=None, image_filename=None):
                 src_node, src_slot = link_map[link_id]
                 inputs[inp["name"]] = [str(src_node), src_slot]
 
-        # Specific Logic for Editing
-        if node_id == "68" and prompt_text:
+        # Template-specific Logic for Editing
+        # Flux Edit (Node 115 image, 109 prompt)
+        if node_id == "109" and node_type == "CLIPTextEncode" and prompt_text:
+            inputs["text"] = prompt_text
+            print(f"Set Flux edit prompt on node 109: {prompt_text[:50]}...")
+        
+        if node_id == "115" and node_type == "LoadImageFromUrl" and image_filename:
+            import random
+            rand_val = random.random()
+            url = f"http://127.0.0.1:8188/api/view?type=input&filename={image_filename}&subfolder=&rand={rand_val}"
+            inputs["image"] = url
+            print(f"Set Flux source image URL on node 115: {url}")
+
+        # Qwen Edit (Node 68 prompt, 117/41 image)
+        if node_id == "68" and node_type == "TextEncodeQwenImageEditPlus" and prompt_text:
             inputs["prompt"] = prompt_text
-            print(f"Set edit prompt on node 68: {prompt_text[:50]}...")
+            print(f"Set Qwen edit prompt on node 68: {prompt_text[:50]}...")
             
         if node_id == "41" and node_type == "LoadImage" and image_filename:
             inputs["image"] = image_filename
-            print(f"Set source image on node 41: {image_filename}")
+            print(f"Set Qwen source image on node 41: {image_filename}")
             
         if node_id == "117" and node_type == "LoadImageFromUrl" and image_filename:
             import random
             rand_val = random.random()
-            # Construct the URL as requested by the user
             url = f"http://127.0.0.1:8188/api/view?type=input&filename={image_filename}&subfolder=&rand={rand_val}"
             inputs["image"] = url
-            print(f"Set source image URL on node 117: {url}")
+            print(f"Set Qwen source image URL on node 117: {url}")
 
         # Seed Randomization to force execution
-        if "seed" in inputs and node_type in ["KSampler", "KSamplerAdvanced", "SamplerCustom"]:
+        if "seed" in inputs and node_type in ["KSampler", "KSamplerAdvanced", "SamplerCustom", "SamplerCustomAdvanced"]:
              import random
-             inputs["seed"] = random.randint(1, 18446744073709551615)
+             inputs["seed"] = random.randint(1, 1125899906842624)
              print(f"Randomized seed for node {node_id} ({node_type})")
+             
+        # Support flux2 RandomNoise node
+        if node_type == "RandomNoise" and "noise_seed" in inputs:
+             import random
+             inputs["noise_seed"] = random.randint(1, 1125899906842624)
+             print(f"Randomized noise_seed for node {node_id} ({node_type})")
 
         prompt[node_id] = {
             "class_type": node_type,
@@ -242,7 +264,7 @@ def main():
     if args.check_status:
         check_status()
         return
-
+    
     if not check_status():
         sys.exit(1)
         
@@ -250,16 +272,34 @@ def main():
         print("Error: --prompt is required for editing")
         sys.exit(1)
 
-    print(f"Loading edit workflow: {WORKFLOW_PATH}")
-    if not os.path.exists(WORKFLOW_PATH):
-        print(f"Error: Workflow file not found at {WORKFLOW_PATH}")
+    # Template selection logic
+    prompt_raw = args.prompt
+    is_qwen = "qwen" in prompt_raw.lower()
+    
+    # Clean the prompt if it contains the trigger
+    prompt_clean = prompt_raw
+    if is_qwen:
+        # Remove common triggers like "qwen edit:", "qwen:", "qwen "
+        import re
+        prompt_clean = re.sub(r'^qwen\s*edit:\s*', '', prompt_clean, flags=re.IGNORECASE)
+        prompt_clean = re.sub(r'^qwen:\s*', '', prompt_clean, flags=re.IGNORECASE)
+        prompt_clean = re.sub(r'^qwen\s*', '', prompt_clean, flags=re.IGNORECASE)
+        
+    workflow_path = QWEN_WORKFLOW if is_qwen else DEFAULT_WORKFLOW
+    
+    print(f"Loading {'Qwen' if is_qwen else 'Flux'} edit workflow: {workflow_path}")
+    if is_qwen:
+        print(f"Cleaned prompt for Qwen: {prompt_clean[:50]}...")
+        
+    if not os.path.exists(workflow_path):
+        print(f"Error: Workflow file not found at {workflow_path}")
         sys.exit(1)
         
-    with open(WORKFLOW_PATH, 'r', encoding='utf-8') as f:
+    with open(workflow_path, 'r', encoding='utf-8') as f:
         workflow = json.load(f)
         
     image_filename = prepare_image(args.image)
-    api_prompt = convert_to_api_format(workflow, args.prompt, image_filename)
+    api_prompt = convert_to_api_format(workflow, prompt_clean, image_filename)
     
     print("Queueing edit prompt...")
     prompt_id = queue_prompt(api_prompt)
