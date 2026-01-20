@@ -1,0 +1,308 @@
+{
+  "61": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen\\qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "10": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "12": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_edit_2511_fp8_e4m3fn_scaled_lightning_comfyui.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "74": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "lora_name": "qwen\\qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "strength_model": 1,
+      "model": [
+        "12",
+        0
+      ]
+    }
+  },
+  "94": {
+    "class_type": "PathchSageAttentionKJ",
+    "inputs": {
+      "sage_attention": "auto",
+      "allow_compile": true,
+      "model": [
+        "64",
+        0
+      ]
+    }
+  },
+  "87": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "wooden_chair.png"
+    }
+  },
+  "83": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "texture_fur.png"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "65",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ]
+    }
+  },
+  "65": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 1006887500272381,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "FlowMatchEulerDiscreteScheduler",
+      "denoise": 1,
+      "model": [
+        "94",
+        0
+      ],
+      "positive": [
+        "70",
+        0
+      ],
+      "negative": [
+        "71",
+        0
+      ],
+      "latent_image": [
+        "75",
+        0
+      ]
+    }
+  },
+  "96": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": [
+        "95",
+        0
+      ]
+    }
+  },
+  "102": {
+    "class_type": "EmptyImage",
+    "inputs": {
+      "width": 1280,
+      "height": 720,
+      "batch_size": 1,
+      "color": 0
+    }
+  },
+  "75": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "113",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ]
+    }
+  },
+  "100": {
+    "class_type": "Any Switch (rgthree)",
+    "inputs": {
+      "any_01": [
+        "117",
+        0
+      ],
+      "any_02": [
+        "102",
+        0
+      ]
+    }
+  },
+  "113": {
+    "class_type": "Any Switch (rgthree)",
+    "inputs": {
+      "any_01": [
+        "79",
+        0
+      ],
+      "any_02": [
+        "100",
+        0
+      ]
+    }
+  },
+  "41": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "nunchaku-yzima-lora_00045_.png"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "ComfyUI-qwenedit-2511-camera-angle",
+      "images": [
+        "8",
+        0
+      ]
+    }
+  },
+  "69": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "prompt": "",
+      "clip": [
+        "61",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ],
+      "image1": [
+        "79",
+        0
+      ],
+      "image2": [
+        "83",
+        0
+      ],
+      "image3": [
+        "87",
+        0
+      ]
+    }
+  },
+  "68": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "prompt": "transform the turtle into a majestic red dragon",
+      "clip": [
+        "61",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ],
+      "image1": [
+        "79",
+        0
+      ],
+      "image2": [
+        "83",
+        0
+      ],
+      "image3": [
+        "87",
+        0
+      ]
+    }
+  },
+  "67": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "shift": 3.1,
+      "model": [
+        "74",
+        0
+      ]
+    }
+  },
+  "64": {
+    "class_type": "CFGNorm",
+    "inputs": {
+      "strength": 1,
+      "model": [
+        "67",
+        0
+      ]
+    }
+  },
+  "71": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "inputs": {
+      "reference_latents_method": "index_timestep_zero",
+      "conditioning": [
+        "69",
+        0
+      ]
+    }
+  },
+  "70": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "inputs": {
+      "reference_latents_method": "index_timestep_zero",
+      "conditioning": [
+        "68",
+        0
+      ]
+    }
+  },
+  "79": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "upscale_method": "lanczos",
+      "megapixels": 1.6,
+      "resolution_steps": 1,
+      "image": [
+        "95",
+        0
+      ]
+    }
+  },
+  "72": {
+    "class_type": "Note",
+    "inputs": {}
+  },
+  "95": {
+    "class_type": "ImageResizeKJv2",
+    "inputs": {
+      "width": 720,
+      "height": 408,
+      "upscale_method": "lanczos",
+      "keep_proportion": "crop",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 32,
+      "device": "cpu",
+      "image": [
+        "117",
+        0
+      ]
+    }
+  },
+  "90": {
+    "class_type": "Note",
+    "inputs": {}
+  },
+  "117": {
+    "class_type": "LoadImageFromUrl",
+    "inputs": {
+      "image": "http://127.0.0.1:8188/api/view?type=input&filename=nunchaku-yzima-lora_00045_.png&subfolder=&rand=0.542317668212935",
+      "keep_alpha_channel": false,
+      "output_mode": false,
+      "upload": "image"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "error": {
+    "type": "invalid_prompt",
+    "message": "Cannot execute because node Note does not exist.",
+    "details": "Node ID '#72'",
+    "extra_info": {}
+  },
+  "node_errors": {}
+}

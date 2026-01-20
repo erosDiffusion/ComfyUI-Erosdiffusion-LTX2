@@ -1,0 +1,18 @@
+﻿ComfyUI is RUNNING
+Loading edit workflow: D:\ComfyUI7\ComfyUI\user\default\workflows\movie 1.1 - qwen image edit antigravity.json
+Warning: Could not fetch info for node Any Switch (rgthree): URL can't contain control characters. '/object_info/Any Switch (rgthree)' (found at least ' ')
+Warning: Skipping node 100 (Any Switch (rgthree)) - no definition found.
+Warning: Skipping node 113 (Any Switch (rgthree)) - no definition found.
+Set source image on node 41: nunchaku-yzima-lora_00045_.png
+Set edit prompt on node 68: transform the turtle into a majestic red dragon...
+Set source image URL on node 117: http://127.0.0.1:8188/api/view?type=input&filename=nunchaku-yzima-lora_00045_.png&subfolder=&rand=0.8530994563007427
+Queueing edit prompt...
+  Prompt ID: d221b8bd-fd70-4942-8484-bdbdb8396ff0
+Waiting for completion...
+  Waiting... 2s
+
+  Completed!
+
+Outputs:
+  [image] D:\ComfyUI7\ComfyUI\output\TempImageFromUrl_00003_.png
+  [image] D:\ComfyUI7\ComfyUI\output\ComfyUI_temp_frzsm_00002_.png

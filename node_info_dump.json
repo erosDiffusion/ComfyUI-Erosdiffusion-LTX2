@@ -1,0 +1,1013 @@
+{
+  "LINK_TYPES": [
+    "MODEL",
+    "CLIP",
+    "VAE",
+    "CONDITIONING",
+    "IMAGE",
+    "LATENT",
+    "MASK",
+    "SIGMAS",
+    "GUIDANCE",
+    "CONTROL_NET",
+    "STYLE_MODEL",
+    "UPSCALE_MODEL",
+    "FREEU_STRIDE",
+    "BBOX",
+    "SEGS",
+    "SAM_MODEL",
+    "CANVAS"
+  ],
+  "TextEncodeQwenImageEditPlus": {
+    "input": {
+      "required": {
+        "clip": [
+          "CLIP",
+          {}
+        ],
+        "prompt": [
+          "STRING",
+          {
+            "multiline": true,
+            "dynamicPrompts": true
+          }
+        ]
+      },
+      "optional": {
+        "vae": [
+          "VAE",
+          {}
+        ],
+        "image1": [
+          "IMAGE",
+          {}
+        ],
+        "image2": [
+          "IMAGE",
+          {}
+        ],
+        "image3": [
+          "IMAGE",
+          {}
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "clip",
+        "prompt"
+      ],
+      "optional": [
+        "vae",
+        "image1",
+        "image2",
+        "image3"
+      ]
+    },
+    "output": [
+      "CONDITIONING"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "CONDITIONING"
+    ],
+    "output_tooltips": [
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "TextEncodeQwenImageEditPlus",
+    "display_name": null,
+    "description": "",
+    "python_module": "comfy_extras.nodes_qwen",
+    "category": "advanced/conditioning",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": false,
+    "api_node": false,
+    "price_badge": null
+  },
+  "ImageResizeKJv2": {
+    "input": {
+      "required": {
+        "image": [
+          "IMAGE"
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 512,
+            "min": 0,
+            "max": 16384,
+            "step": 1
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 512,
+            "min": 0,
+            "max": 16384,
+            "step": 1
+          }
+        ],
+        "upscale_method": [
+          [
+            "nearest-exact",
+            "bilinear",
+            "area",
+            "bicubic",
+            "lanczos"
+          ]
+        ],
+        "keep_proportion": [
+          [
+            "stretch",
+            "resize",
+            "pad",
+            "pad_edge",
+            "pad_edge_pixel",
+            "crop",
+            "pillarbox_blur",
+            "total_pixels"
+          ],
+          {
+            "default": false
+          }
+        ],
+        "pad_color": [
+          "STRING",
+          {
+            "default": "0, 0, 0",
+            "tooltip": "Color to use for padding."
+          }
+        ],
+        "crop_position": [
+          [
+            "center",
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ],
+          {
+            "default": "center"
+          }
+        ],
+        "divisible_by": [
+          "INT",
+          {
+            "default": 2,
+            "min": 0,
+            "max": 512,
+            "step": 1
+          }
+        ]
+      },
+      "optional": {
+        "mask": [
+          "MASK"
+        ],
+        "device": [
+          [
+            "cpu",
+            "gpu"
+          ]
+        ]
+      },
+      "hidden": {
+        "unique_id": "UNIQUE_ID"
+      }
+    },
+    "input_order": {
+      "required": [
+        "image",
+        "width",
+        "height",
+        "upscale_method",
+        "keep_proportion",
+        "pad_color",
+        "crop_position",
+        "divisible_by"
+      ],
+      "optional": [
+        "mask",
+        "device"
+      ],
+      "hidden": [
+        "unique_id"
+      ]
+    },
+    "output": [
+      "IMAGE",
+      "INT",
+      "INT",
+      "MASK"
+    ],
+    "output_is_list": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_name": [
+      "IMAGE",
+      "width",
+      "height",
+      "mask"
+    ],
+    "name": "ImageResizeKJv2",
+    "display_name": "Resize Image v2",
+    "description": "\nResizes the image to the specified width and height.  \nSize can be retrieved from the input.\n\nKeep proportions keeps the aspect ratio of the image, by  \nhighest dimension.  \n",
+    "python_module": "custom_nodes.comfyui-kjnodes",
+    "category": "KJNodes/image",
+    "output_node": false
+  },
+  "KSampler": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL",
+          {
+            "tooltip": "The model used for denoising the input latent."
+          }
+        ],
+        "seed": [
+          "INT",
+          {
+            "default": 0,
+            "min": 0,
+            "max": 18446744073709551615,
+            "control_after_generate": true,
+            "tooltip": "The random seed used for creating the noise."
+          }
+        ],
+        "steps": [
+          "INT",
+          {
+            "default": 20,
+            "min": 1,
+            "max": 10000,
+            "tooltip": "The number of steps used in the denoising process."
+          }
+        ],
+        "cfg": [
+          "FLOAT",
+          {
+            "default": 8.0,
+            "min": 0.0,
+            "max": 100.0,
+            "step": 0.1,
+            "round": 0.01,
+            "tooltip": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality."
+          }
+        ],
+        "sampler_name": [
+          [
+            "euler",
+            "euler_cfg_pp",
+            "euler_ancestral",
+            "euler_ancestral_cfg_pp",
+            "heun",
+            "heunpp2",
+            "exp_heun_2_x0",
+            "exp_heun_2_x0_sde",
+            "dpm_2",
+            "dpm_2_ancestral",
+            "lms",
+            "dpm_fast",
+            "dpm_adaptive",
+            "dpmpp_2s_ancestral",
+            "dpmpp_2s_ancestral_cfg_pp",
+            "dpmpp_sde",
+            "dpmpp_sde_gpu",
+            "dpmpp_2m",
+            "dpmpp_2m_cfg_pp",
+            "dpmpp_2m_sde",
+            "dpmpp_2m_sde_gpu",
+            "dpmpp_2m_sde_heun",
+            "dpmpp_2m_sde_heun_gpu",
+            "dpmpp_3m_sde",
+            "dpmpp_3m_sde_gpu",
+            "ddpm",
+            "lcm",
+            "ipndm",
+            "ipndm_v",
+            "deis",
+            "res_multistep",
+            "res_multistep_cfg_pp",
+            "res_multistep_ancestral",
+            "res_multistep_ancestral_cfg_pp",
+            "gradient_estimation",
+            "gradient_estimation_cfg_pp",
+            "er_sde",
+            "seeds_2",
+            "seeds_3",
+            "sa_solver",
+            "sa_solver_pece",
+            "ddim",
+            "uni_pc",
+            "uni_pc_bh2",
+            "legacy_rk",
+            "rk",
+            "rk_beta",
+            "deis_3m_ode",
+            "deis_2m_ode",
+            "deis_3m",
+            "deis_2m",
+            "res_6s_ode",
+            "res_5s_ode",
+            "res_3s_ode",
+            "res_2s_ode",
+            "res_3m_ode",
+            "res_2m_ode",
+            "res_6s",
+            "res_5s",
+            "res_3s",
+            "res_2s",
+            "res_3m",
+            "res_2m",
+            "stork2",
+            "stork4"
+          ],
+          {
+            "tooltip": "The algorithm used when sampling, this can affect the quality, speed, and style of the generated output."
+          }
+        ],
+        "scheduler": [
+          [
+            "simple",
+            "sgm_uniform",
+            "karras",
+            "exponential",
+            "ddim_uniform",
+            "beta",
+            "normal",
+            "linear_quadratic",
+            "kl_optimal",
+            "FlowMatchEulerDiscreteScheduler",
+            "bong_tangent",
+            "beta57"
+          ],
+          {
+            "tooltip": "The scheduler controls how noise is gradually removed to form the image."
+          }
+        ],
+        "positive": [
+          "CONDITIONING",
+          {
+            "tooltip": "The conditioning describing the attributes you want to include in the image."
+          }
+        ],
+        "negative": [
+          "CONDITIONING",
+          {
+            "tooltip": "The conditioning describing the attributes you want to exclude from the image."
+          }
+        ],
+        "latent_image": [
+          "LATENT",
+          {
+            "tooltip": "The latent image to denoise."
+          }
+        ],
+        "denoise": [
+          "FLOAT",
+          {
+            "default": 1.0,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01,
+            "tooltip": "The amount of denoising applied, lower values will maintain the structure of the initial image allowing for image to image sampling."
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "model",
+        "seed",
+        "steps",
+        "cfg",
+        "sampler_name",
+        "scheduler",
+        "positive",
+        "negative",
+        "latent_image",
+        "denoise"
+      ]
+    },
+    "output": [
+      "LATENT"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "LATENT"
+    ],
+    "name": "KSampler",
+    "display_name": "KSampler",
+    "description": "Uses the provided model, positive and negative conditioning to denoise the latent image.",
+    "python_module": "nodes",
+    "category": "sampling",
+    "output_node": false,
+    "output_tooltips": [
+      "The denoised latent."
+    ]
+  },
+  "LoraLoaderModelOnly": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL"
+        ],
+        "lora_name": [
+          [
+            "Dark_Fantasy_Pulp_Pinup.safetensors",
+            "Flux\\40sTechnicolorCyberpunk.safetensors",
+            "Flux\\70sHorrorMovie2Flux.safetensors",
+            "Flux\\70sSci-FiMJ7Flux.safetensors",
+            "Flux\\90s_Indie_Movie.safetensors",
+            "Flux\\Aidma\\aidmaBaldursGate3-FLUX-v0.1.safetensors",
+            "Flux\\Aidma\\aidmaFLUXPro1.1-FLUX-v0.3.safetensors",
+            "Flux\\Aidma\\aidmaFemaleCosplay-FLUX-JOY-V0.1.safetensors",
+            "Flux\\Aidma\\aidmaGPTimage-FLUX-v0.1.safetensors",
+            "Flux\\Aidma\\aidmaGothGirl-FLUX-V0.1.safetensors",
+            "Flux\\Aidma\\aidmaHiDreamStyle-FLUX-v0.1.safetensors",
+            "Flux\\Aidma\\aidmaMJv7-FLUX-v0.1.safetensors",
+            "Flux\\Aidma\\aidmaRealisticSkin-FLUX-v0.1.safetensors",
+            "Flux\\Aidma\\aidmaWomanBodyTattoo-FLUX-V0.1.safetensors",
+            "Flux\\ArtDecoVintageFutureFlux.safetensors",
+            "Flux\\Artists\\Alastair_Magnaldo.safetensors",
+            "Flux\\Artists\\Andrian_Luchian.safetensors",
+            "Flux\\Artists\\Aquarelle_IV-8.safetensors",
+            "Flux\\Artists\\Architectural_Sketching.safetensors",
+            "Flux\\Artists\\Blue_Future.safetensors",
+            "Flux\\Artists\\Comic book V2.safetensors",
+            "Flux\\Artists\\Comic book opus IV.safetensors",
+            "Flux\\Artists\\Elden_Ring_-_Yoshitaka_Amano.safetensors",
+            "Flux\\Artists\\FluxMythP0rtr4itStyle.safetensors",
+            "Flux\\Artists\\Frank_Frazetta-4.safetensors",
+            "Flux\\Artists\\Fred_Calleri.safetensors",
+            "Flux\\Artists\\GemTouch.safetensors",
+            "Flux\\Artists\\Gerald_Brom.safetensors",
+            "Flux\\Artists\\Greg Rutkowski.safetensors",
+            "Flux\\Artists\\GustaveDore_Etching_Style.safetensors",
+            "Flux\\Artists\\Illustration Factory V3.safetensors",
+            "Flux\\Artists\\Jeffrey_Catherine_Jones-3.safetensors",
+            "Flux\\Artists\\Mangaka V2.safetensors",
+            "Flux\\Artists\\Norman_Rockwell-5.safetensors",
+            "Flux\\Artists\\Pascal_Blanch\u00e9.safetensors",
+            "Flux\\Artists\\Richard_Anderson-5.safetensors",
+            "Flux\\Artists\\Sketch portrait.safetensors",
+            "Flux\\Artists\\The_Vanguard.safetensors",
+            "Flux\\Artists\\Vintage comic book.safetensors",
+            "Flux\\Artists\\fluxlisimo_aura_v1-FLUX.safetensors",
+            "Flux\\Artists\\gustav3.safetensors",
+            "Flux\\Artists\\style of William Aldophe Bouguereau [FLUX] 520 fast.safetensors",
+            "Flux\\Artists\\style_of_Gil_Elvgren_FLUX_149-000009.safetensors",
+            "Flux\\Artists\\style_of_Gustave_Dore_flux_522.safetensors",
+            "Flux\\Artists\\style_of_Henry_Scott_Tuke_FLUX_239-000009.safetensors",
+            "Flux\\Artists\\style_of_Kerry_James_Marshall_FLUX_268.safetensors",
+            "Flux\\Artists\\style_of_Ray_Caesar_FLUX_351.safetensors",
+            "Flux\\Artists\\tbh436-sdxl.safetensors",
+            "Flux\\Design-5.safetensors",
+            "Flux\\DynamicCamera.safetensors",
+            "Flux\\FLUX_QVL_LoRA-000003.safetensors",
+            "Flux\\FluxMythR3alisticF.safetensors",
+            "Flux\\Flux_Krea_Blaze_Lora-rank128.safetensors",
+            "Flux\\Flux_Krea_Blaze_Lora-rank64.safetensors",
+            "Flux\\GothicDarkFantasyMovieFlux.safetensors",
+            "Flux\\Kodak cinematic film style Photography v1.safetensors",
+            "Flux\\KomikZv3.safetensors",
+            "Flux\\Lingyuzhou\\Lingyuzhou_aestethic_enhancer.safetensors",
+            "Flux\\Lingyuzhou\\Lingyuzhou_hands_stabilizer.safetensors",
+            "Flux\\Lingyuzhou\\Lingyuzhou_texture.0.6.safetensors",
+            "Flux\\MJ7pastelfilm.safetensors",
+            "Flux\\MJ_MODE.safetensors",
+            "Flux\\MoviePoster03-02_CE_FLUX_128AIT.safetensors",
+            "Flux\\OilPaintZv1.safetensors",
+            "Flux\\Phandigrams_II.safetensors",
+            "Flux\\Ptg_flux.safetensors",
+            "Flux\\RetroAnimeFluxV1.safetensors",
+            "Flux\\TW_Makeup.safetensors",
+            "Flux\\The_Body_Version_E.safetensors",
+            "Flux\\The_Body_Version_K.safetensors",
+            "Flux\\VaporWaveFlux.safetensors",
+            "Flux\\aeshteticv5.safetensors",
+            "Flux\\architexv1.safetensors",
+            "Flux\\charcoalzv1.safetensors",
+            "Flux\\cinematic film Kodak 200D Kodak 500T.safetensors",
+            "Flux\\details\\Aesthetic texture enhancer.safetensors",
+            "Flux\\details\\DetailEnhancerV1.safetensors",
+            "Flux\\details\\Detailer2K.safetensors",
+            "Flux\\details\\Flux.1_Turbo_Detailer.safetensors",
+            "Flux\\details\\FluxDFaeTasticDetails.safetensors",
+            "Flux\\details\\detailed_v2_flux_ntc.safetensors",
+            "Flux\\details\\high_detail.safetensors",
+            "Flux\\details\\sh4rpn3ss_v2_e56.safetensors",
+            "Flux\\eros\\ArtfulNSFWV2Flux.safetensors",
+            "Flux\\eros\\Big_Boobs.safetensors",
+            "Flux\\eros\\FC Flux Perfect Busts.safetensors",
+            "Flux\\eros\\Huge_natural_breasts_for_FLUX_v2.safetensors",
+            "Flux\\eros\\MysticHentai-v1.safetensors",
+            "Flux\\eros\\MysticXXX-v4.safetensors",
+            "Flux\\eros\\NSFW V1.safetensors",
+            "Flux\\eros\\NSFW_master.safetensors",
+            "Flux\\eros\\SCG-Anatomy.safetensors",
+            "Flux\\eros\\WanNudeArt.safetensors",
+            "Flux\\eros\\apricota_flux_bimbomilf.safetensors",
+            "Flux\\eros\\big-round.safetensors",
+            "Flux\\eros\\bmbpflx2.safetensors",
+            "Flux\\eros\\fstyle_v4_NSFW_lora_fluxlisimo.safetensors",
+            "Flux\\eros\\lactate-shura-000002.safetensors",
+            "Flux\\eros\\lipbite-flux-000012.safetensors",
+            "Flux\\eros\\nipplediffusion-banana-f1.safetensors",
+            "Flux\\eros\\nipplediffusion-big-f1.safetensors",
+            "Flux\\eros\\nipplediffusion-f1.safetensors",
+            "Flux\\eros\\nipplediffusion-puffy-f1.safetensors",
+            "Flux\\eros\\nipplediffusion-silicone-f1.safetensors",
+            "Flux\\eros\\scg-anatomy-female-v2.safetensors",
+            "Flux\\eros\\seashell_bikini_g_f1_d2a1_rank2_bf16.safetensors",
+            "Flux\\eros\\skinny_bigBreasts.safetensors",
+            "Flux\\favourite\\Candid_Instax_Photo.safetensors",
+            "Flux\\favourite\\Defluxion II.safetensors",
+            "Flux\\favourite\\The_Vanguard.safetensors",
+            "Flux\\favourite\\cinematic-octane.safetensors",
+            "Flux\\favourite\\clear_note.safetensors",
+            "Flux\\favourite\\fluxlisimo-liquid-v1_FLUX.safetensors",
+            "Flux\\favourite\\fluxlisimo_aura_v2-FLUX.safetensors",
+            "Flux\\favourite\\fluxlisimo_icon_v1_FLUX.safetensors",
+            "Flux\\favourite\\fluxlisimo_v4_lora_FLUX.safetensors",
+            "Flux\\film cinematic dramatic color style v2.1.safetensors",
+            "Flux\\flux_realism_lora.safetensors",
+            "Flux\\fluxlisimo\\est3tic_heels_FLUX-DEV.safetensors",
+            "Flux\\fluxlisimo\\est3tic_lingerie_v1_FLUX-DEV.safetensors",
+            "Flux\\fluxlisimo\\fluxlisimo_aura_v5-FLUX.safetensors",
+            "Flux\\fluxlisimo\\fluxlisimo_biomech_lora-FLUX_v2.safetensors",
+            "Flux\\fluxlisimo\\fluxlisimo_cinematic_v1_FLUX.safetensors",
+            "Flux\\fluxlisimo\\fluxlisimo_drawio_v1_FLUX.safetensors",
+            "Flux\\fluxlisimo\\fstyle_v3_lora_fluxlisimo.safetensors",
+            "Flux\\fluxlisimo\\fstyle_v4_NSFW_lora_fluxlisimo.safetensors",
+            "Flux\\hand\\Better hands flux v1.0.safetensors",
+            "Flux\\hand\\Hand v2.safetensors",
+            "Flux\\kontext\\5SX6j2wcLJKgudBqlmver_adapter_model_comfy_converted.safetensors",
+            "Flux\\kontext\\8nXWPoktw7sdu0Y0GSKFB_adapter_model_comfy_converted.safetensors",
+            "Flux\\kontext\\EAA_1Pfw0sBAvtBbv401y_8a8c4091e9ae45869b469bec4a0d8446_adapter_model_comfy_converted.safetensors",
+            "Flux\\kontext\\It2d_UD0qRgotAZjJHXx__adapter_model_comfy_converted.safetensors",
+            "Flux\\kontext\\MnzfOWwLjl1CL_0qu7F6E_adapter_model_comfy_converted.safetensors",
+            "Flux\\kontext\\Vm-BMF5YoW4OOsDhk1F9h_adapter_model_comfy_converted.safetensors",
+            "Flux\\kontext\\b6TU_pSM8eoZWyiy-CyFF_adapter_model_comfy_converted.safetensors",
+            "Flux\\kontext\\high_detail.safetensors",
+            "Flux\\kontext\\oil_painting.safetensors",
+            "Flux\\kontext\\pastel.safetensors",
+            "Flux\\kontext\\pencil_drawing.safetensors",
+            "Flux\\kontext\\wIvB3erdwsH68WsO1RTbv_adapter_model_comfy_converted.safetensors",
+            "Flux\\kontext\\watercolor.safetensors",
+            "Flux\\lqstyle_r15.safetensors",
+            "Flux\\mystic\\MysticRealism.safetensors",
+            "Flux\\mystic\\MysticToon-V1.safetensors",
+            "Flux\\n1j1-5-12.safetensors",
+            "Flux\\new\\eros2\\FC Flux Perfect Busts.safetensors",
+            "Flux\\new\\eros2\\FOCUSONv1feet.safetensors",
+            "Flux\\new\\eros2\\NSFW V2.safetensors",
+            "Flux\\new\\eros2\\NSFW_master.safetensors",
+            "Flux\\new\\eros2\\big-round.safetensors",
+            "Flux\\new\\eros2\\bimbo.safetensors",
+            "Flux\\new\\models\\BustySophie-Flux.safetensors",
+            "Flux\\new\\models\\Fictional_Model_Antrax_-_FLUX.safetensors",
+            "Flux\\new\\models\\Fictional_Model_Apple_-_FLUX.safetensors",
+            "Flux\\new\\models\\Fictional_Model_Peach_-_FLUX.safetensors",
+            "Flux\\new\\models\\Fictional_Model_Topaz_-_FLUX.safetensors",
+            "Flux\\new\\models\\azraV6.safetensors",
+            "Flux\\new\\pose\\Dynamic Poses V2.safetensors",
+            "Flux\\new\\pose\\MacaronFLUX_v1.safetensors",
+            "Flux\\new\\pose\\fpose-photography2_000005000.safetensors",
+            "Flux\\penandink\\Eldritch_Cartography_for_Flux_1.0.7.safetensors",
+            "Flux\\penandink\\Gaz_Ink.safetensors",
+            "Flux\\penandink\\Ink_drawing_style-000001.safetensors",
+            "Flux\\penandink\\Inkugami_Art_Style.safetensors",
+            "Flux\\penandink\\Sketch portrait.safetensors",
+            "Flux\\penandink\\Wiz-PenAndInkDrawings.safetensors",
+            "Flux\\penandink\\ink4000.safetensors",
+            "Flux\\penandink\\mapdraw.safetensors",
+            "Flux\\penandink\\minimalist_inkwash_il.safetensors",
+            "Flux\\penandink\\pencil.safetensors",
+            "Flux\\rm\\RM_Animefy_v1.0M.safetensors",
+            "Flux\\rm\\RM_Artistify_v1.0M.safetensors",
+            "Flux\\rm\\RM_Baroque_Cyberpunk_v0.8M.safetensors",
+            "Flux\\rm\\RM_Robotify_v0.7M.safetensors",
+            "Flux\\selfie_poses.safetensors",
+            "Flux\\speed\\Hyper-FLUX.1-dev-16steps-lora.safetensors",
+            "Flux\\speed\\Hyper-FLUX.1-dev-8steps-lora.safetensors",
+            "Flux\\speed\\Hyper-Flux.1-Dev-4-steps-Lora.safetensors",
+            "Flux\\speed\\flux-turbo-alpha.safetensors",
+            "Flux\\uso-flux1-dit-lora-v1.safetensors",
+            "Flux\\ygc\\YFG-Acrylic-v1e14.safetensors",
+            "Flux\\ygc\\YFG-Asak-v1e4.safetensors",
+            "Flux\\ygc\\YFG-Beyond-Glitch-v1e16.safetensors",
+            "Flux\\ygc\\YFG-C4D-v1e12.safetensors",
+            "Flux\\ygc\\YFG-Cehda-v1e4.safetensors",
+            "Flux\\ygc\\YFG-Smorgas-v1.safetensors",
+            "Flux\\ygc\\yfg-fwshn.safetensors",
+            "Flux\\zy_horror_monsters_flux.safetensors",
+            "Flux\\\u9ad8\u901f\u52a8\u6001.safetensors",
+            "Qwen-2512-Image-Lightning-4steps-V1.0.safetensors",
+            "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+            "Qwen-Image-Lightning-4steps-V2.0-bf16.safetensors",
+            "Qwen-Image-Lightning-8steps-V2.0-bf16.safetensors",
+            "UniAnimate-Wan2.1-14B-Lora-12000-fp16.safetensors",
+            "Wan2.1-Fun-14B-InP-HPS2.1.safetensors",
+            "Wan2.1_I2V_14B_FusionX_LoRA.safetensors",
+            "Wan2.1_T2V_14B_FusionX_LoRA.safetensors",
+            "Wan\\Wan21\\FastWan_T2V_14B_480p_lora_rank_128_bf16.safetensors",
+            "Wan\\Wan21\\T2V-jiggle_tits-14b.safetensors",
+            "Wan\\Wan21\\Wan14B_RealismBoost.safetensors",
+            "Wan\\Wan21\\Wan2.1-Fun-1.3B-InP-MPS_reward_lora_comfy.safetensors",
+            "Wan\\Wan21\\Wan2.1-Fun-14B-InP-MPS.safetensors",
+            "Wan\\Wan21\\Wan2.1-T2V-1.3B-Self-Forcing-DMD-FP16-LoRA-Rank32.safetensors",
+            "Wan\\Wan21\\Wan2.1-T2V-1.3B-Self-Forcing-DMD-VACE-FP8_e5m2.safetensors",
+            "Wan\\Wan21\\Wan2.1_I2V_14B_FusionX_LoRA.safetensors",
+            "Wan\\Wan21\\Wan21_AccVid_I2V_480P_14B_lora_rank32_fp16.safetensors",
+            "Wan\\Wan21\\Wan21_CausVid_14B_T2V_lora_rank32_v2.safetensors",
+            "Wan\\Wan21\\Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors",
+            "Wan\\Wan21\\Wan21_PusaV1_LoRA_14B_rank512_bf16.safetensors",
+            "Wan\\Wan21\\Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank32.safetensors",
+            "Wan\\Wan21\\Wan2_1_kwai_recammaster_1_3B_step20000_bf16.safetensors",
+            "Wan\\Wan21\\Wan2_1_self_forcing_dmd_1_3B_lora_rank_32_fp16.safetensors",
+            "Wan\\Wan21\\lightx2v_I2V_14B_480p_cfg_step_distill_rank32_bf16.safetensors",
+            "Wan\\Wan21\\lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank16_bf16.safetensors",
+            "Wan\\Wan21\\lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors",
+            "Wan\\Wan21_PusaV1_LoRA_14B_rank512_bf16.safetensors",
+            "Wan\\Wan22\\Wan22_TI2V_5B_Turbo_lora_rank_64_fp16.safetensors",
+            "Wan\\Wan22\\Wan22_TI2V_5B_Turbo_lora_rank_adaptive_quantile_0.15_fp16.safetensors",
+            "Wan\\Wan22\\Wan2_2_5B_FastWanFullAttn_lora_rank_128_bf16.safetensors",
+            "Wan\\Wan22\\wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+            "Wan\\Wan22\\wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+            "Wan\\Wan22\\wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+            "Wan\\Wan22\\wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
+            "Wan\\Wan22\\wan22_l_high_lora_64.safetensors",
+            "Wan\\Wan22\\wan22_l_low_lora_64.safetensors",
+            "Wan\\Wan2_1_EchoShot_1_3B_lora_rank_128_fp16.safetensors",
+            "Wan\\Wan2_1_FantasyPortrait_fp16.safetensors",
+            "Wan\\Wan2_1_MTV-Crafter_motion_adapter_bf16.safetensors",
+            "Wan\\Wan2_1_VAE_fp32.safetensors",
+            "Wan\\Wan2_1_self_forcing_dmd_1_3B_lora_rank_32_fp16.safetensors",
+            "Wan\\Wan2_1_self_forcing_sid_v2_1_3B_lora_rank_32_fp16.safetensors",
+            "Wan\\Wan2_2_VAE_bf16.safetensors",
+            "Wan\\hunyuan_video_accvid_5_steps_lora_rank16_fp8_e4m3fn.safetensors",
+            "Wan\\svi-shot.safetensors",
+            "Z-Image-Turbo-Fun-Controlnet-Tile-2.1-2601-8steps.safetensors",
+            "Z-Image-Turbo-Fun-Controlnet-Tile-2.1-lite-2601-8steps.safetensors",
+            "Z-Image-Turbo-Fun-Controlnet-Union-2.1-2601-8steps.safetensors",
+            "Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2601-8steps.safetensors",
+            "eros3\\BouncyWalkV01.safetensors",
+            "eros3\\Fake_breasts_flux_v4-000027.safetensors",
+            "eros3\\FemaleBody_MiLF_03_Chubby.safetensors",
+            "eros3\\NSFW V2.safetensors",
+            "eros3\\Ptg_flux.safetensors",
+            "eros3\\Round_Boobs_for_Flux-000008.safetensors",
+            "eros3\\The_Body.safetensors",
+            "eros3\\The_Body_Version_B.safetensors",
+            "eros3\\The_Body_Version_C.safetensors",
+            "eros3\\The_Body_Version_D.safetensors",
+            "eros3\\The_Body_Version_F-000054.safetensors",
+            "eros3\\The_Body_Version_G3.safetensors",
+            "eros3\\The_Body_Version_H.safetensors",
+            "eros3\\The_Body_Version_I.safetensors",
+            "eros3\\The_Body_Version_J.safetensors",
+            "eros3\\aidmaFeetFix-FLUX-V0.1.safetensors",
+            "eros3\\aidmaNSFWunlock-FLUX-V0.2.safetensors",
+            "eros3\\bmbpflx2.safetensors",
+            "eros3\\flux-round-silicone-tits.safetensors",
+            "eros3\\long-dr3ss.safetensors",
+            "eros3\\seethru.safetensors",
+            "eros3\\x1_ITF_SkinDiffDDS_v1.pth",
+            "lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors",
+            "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+            "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors",
+            "ltx-2-19b-distilled-lora-384.safetensors",
+            "ltx-2-19b-distilled-lora-resized_dynamic_fro095_avg_rank_242_bf16.safetensors",
+            "ltx-2-19b-distilled-lora_resized_dynamic_fro09_avg_rank_175_bf16.safetensors",
+            "ltx-2-19b-distilled-lora_resized_dynamic_fro09_avg_rank_175_fp8.safetensors",
+            "ltx-2-19b-ic-lora-canny-control.safetensors",
+            "ltx-2-19b-ic-lora-depth-control.safetensors",
+            "ltx-2-19b-ic-lora-detailer.safetensors",
+            "ltx-2-19b-ic-lora-pose-control.safetensors",
+            "ltx-2-19b-lora-camera-control-dolly-in.safetensors",
+            "ltx-2-19b-lora-camera-control-dolly-left.safetensors",
+            "ltx-2-19b-lora-camera-control-dolly-out.safetensors",
+            "ltx-2-19b-lora-camera-control-dolly-right.safetensors",
+            "ltx-2-19b-lora-camera-control-jib-down.safetensors",
+            "ltx-2-19b-lora-camera-control-jib-up.safetensors",
+            "ltx-2-19b-lora-camera-control-static.safetensors",
+            "ltxv-098-ic-lora-detailer-comfyui.safetensors",
+            "qwen\\35ee22ed-6a7f-47a9-83f7-18759a9cae7e.TA_trained.safetensors",
+            "qwen\\Accelerator-QwenImage-Lightning-8steps-PAseer.safetensors",
+            "qwen\\AshmoTV-insid3_style_qwen.safetensors",
+            "qwen\\Bouguereau style_qwen_V1-15.safetensors",
+            "qwen\\Ghilie.safetensors",
+            "qwen\\ImzQwenPortraitPro.safetensors",
+            "qwen\\Kubrick_Look_qwen.safetensors",
+            "qwen\\Put it here_Qwen edit_V2.0.safetensors",
+            "qwen\\Qwen-Edit-2509-TurnToPhoto.safetensors",
+            "qwen\\Qwen-Edit-Relight.safetensors",
+            "qwen\\Qwen-Image-Analog-v1.1.safetensors",
+            "qwen\\Qwen-Image-Edit-Lightning-8steps-V1.0.safetensors",
+            "qwen\\Qwen-Image-Lightning-4steps-V1.0-bf16.safetensors",
+            "qwen\\Qwen-Image-Lightning-4steps-V1.0.safetensors",
+            "qwen\\Qwen-Image-Lightning-4steps-V2.0-bf16.safetensors",
+            "qwen\\Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors",
+            "qwen\\Qwen-enhancer.safetensors",
+            "qwen\\Qwen4Play_v2.safetensors",
+            "qwen\\QwenEdit_InWater.safetensors",
+            "qwen\\Qwen_907X_Edited_Lesser_V2-8K5.safetensors",
+            "qwen\\[Qwen] Film Photography {150e} (bluejaysierra).safetensors",
+            "qwen\\aldniki_qwen_figure_maker_v01.safetensors",
+            "qwen\\aldniki_qwen_omni_cosplay_v01.safetensors",
+            "qwen\\aldniki_qwen_reality_transform_v01.safetensors",
+            "qwen\\camera_lora.safetensors",
+            "qwen\\deblur3_n1e100_dim4_3e-3-000060.safetensors",
+            "qwen\\enhanced (1).safetensors",
+            "qwen\\enhanced.safetensors",
+            "qwen\\extract_texture_qwen_image_edit_2509.safetensors",
+            "qwen\\flymy_qwen_image_edit_inscene_lora.safetensors",
+            "qwen\\flymy_realism.safetensors",
+            "qwen\\lenovo.safetensors",
+            "qwen\\movieclips_v1.safetensors",
+            "qwen\\multiangle.safetensors",
+            "qwen\\next-scene_lora-v2-3000.safetensors",
+            "qwen\\nsfw_qwen_blend_5500_qha.safetensors",
+            "qwen\\put it here_QwenEdit_V0.1.safetensors",
+            "qwen\\qwen-fusion.safetensors",
+            "qwen\\qwen-image-edit-2511-multiple-angles-lora.safetensors",
+            "qwen\\qwen-white-to-scene.safetensors",
+            "qwen\\qwen_MCNL_v1.0.safetensors",
+            "qwen\\qwen_fashionedit.safetensors",
+            "qwen\\qwen_image_snapchat.safetensors",
+            "qwen\\samsungcam-ultrareal.safetensors",
+            "qwen\\stockphoto2.safetensors",
+            "qwen\\uncrop_qwenedit2509.safetensors",
+            "removal_timestep_alpha-2-1740.safetensors",
+            "zit\\1NK_H4TCH1NG_zimage_1024.safetensors",
+            "zit\\American_comics_slider_z_v1_000000500.safetensors",
+            "zit\\Bright Happy Odd ZIT 2.safetensors",
+            "zit\\Classic_Painting_Z_Image_Turbo_v1_renderartist_1750.safetensors",
+            "zit\\DC Vivid Dark Fantasy Painting [Z-ImageTurbo.JoyCaptionBetaOne][Trigger=dcdrkfntsy.] v1_000005750.safetensors",
+            "zit\\LineDrawing03_CE_ZIMGT_AIT5k.safetensors",
+            "zit\\Low_Poly_Papercraft_Z-Image.safetensors",
+            "zit\\MoviePoster01c_CE_ZIMGT_AIT3k.safetensors",
+            "zit\\OldschoolFantasy_v1.safetensors",
+            "zit\\PinupGirl01e_CE_ZIMGT_AIT5k.safetensors",
+            "zit\\Saturday_Morning_Z_Image_Turbo_v1_renderartist_1500.safetensors",
+            "zit\\Stylized 3D ZIT_000001176.safetensors",
+            "zit\\VestalWater_Illustrious_styles_for_Z_Image.safetensors",
+            "zit\\VintageDrawing01a_CE_ZIMGT_AIT5k.safetensors",
+            "zit\\Z-DBRZ.safetensors",
+            "zit\\Z-cyborg.safetensors",
+            "zit\\ZArcanestyle.safetensors",
+            "zit\\ZIT_Luneva CyberHD.safetensors",
+            "zit\\anime\\Flat_AnimeStyle_Agino_ZImage.safetensors",
+            "zit\\anime\\Flat_AnimeStyle_Agino_ZImage_Clear.safetensors",
+            "zit\\anime\\Kasetsu_Makoto_Gakuen_Ura_Service_r1_ZimageTurbo.safetensors",
+            "zit\\anime\\elusarca-anime-style.safetensors",
+            "zit\\anime\\retro_scifi-90s_anime_style_Z_image_turbo.safetensors",
+            "zit\\anime\\z-image-anime-v1.safetensors",
+            "zit\\dark_art_style_z_image_turbo.safetensors",
+            "zit\\hot\\boob3V145.safetensors",
+            "zit\\hot\\psxAM_v1_ZIT.safetensors",
+            "zit\\hot\\thick fit Z.safetensors",
+            "zit\\hot\\vulva10000.safetensors",
+            "zit\\hot\\woman877-zimage.safetensors",
+            "zit\\hot\\z_image_turbo_ReversalFilmGravure_v1.0.safetensors",
+            "zit\\hot\\zimage-igbaddie.safetensors",
+            "zit\\hot\\zit_fake_breasts_v1.safetensors",
+            "zit\\hot\\zturbo_bimbo_alpha.safetensors",
+            "zit\\realistic\\OB\u62cd\u7acb\u5f97\u4eba\u50cf\u6444\u5f71Instant camera portrait photography V4.0.safetensors",
+            "zit\\realistic\\Technically_Color_Z_Image_Turbo_v1_renderartist_2000.safetensors",
+            "zit\\realistic\\YFG-ChatGPT-4o-ZIT-v1.safetensors",
+            "zit\\realistic\\Z-Image_Pro.safetensors",
+            "zit\\realistic\\Z-TURBO_Photography_35mmPhoto_1536.safetensors",
+            "zit\\realistic\\ZIT-Real PS-v1_70K.safetensors",
+            "zit\\realistic\\ZIT_Midjourney_Luneva_Cinematic_v1_r128.safetensors",
+            "zit\\realistic\\afterdark_v2.safetensors",
+            "zit\\realistic\\hyper-realist_style__beta__clear-voyage.safetensors",
+            "zit\\realistic\\lenovo_z.safetensors",
+            "zit\\realistic\\zimage_lightslider.safetensors",
+            "zit\\realistic\\zy_CinematicShot_zit.safetensors",
+            "zit\\yoshiaki_kawajiri_style_z_image_turbo.safetensors",
+            "zit\\z_image_turbo_brea_copy_000001800.safetensors",
+            "zit\\zimage_experimental_cyberstuff.safetensors",
+            "zit\\zy_AnimationShot_ZIT.safetensors"
+          ]
+        ],
+        "strength_model": [
+          "FLOAT",
+          {
+            "default": 1.0,
+            "min": -100.0,
+            "max": 100.0,
+            "step": 0.01
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "model",
+        "lora_name",
+        "strength_model"
+      ]
+    },
+    "output": [
+      "MODEL"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "MODEL"
+    ],
+    "name": "LoraLoaderModelOnly",
+    "display_name": "LoraLoaderModelOnly",
+    "description": "LoRAs are used to modify diffusion and CLIP models, altering the way in which latents are denoised such as applying styles. Multiple LoRA nodes can be linked together.",
+    "python_module": "nodes",
+    "category": "loaders",
+    "output_node": false,
+    "output_tooltips": [
+      "The modified diffusion model.",
+      "The modified CLIP model."
+    ]
+  },
+  "CLIPLoader": {
+    "input": {
+      "required": {
+        "clip_name": [
+          [
+            "byt5_small_glyphxl_fp16.safetensors",
+            "cascade_clip.safetensors",
+            "clip-vit-large-patch14\\model.safetensors",
+            "clip\\ViT-L-14-BEST-smooth-GmP-ft.safetensors",
+            "clip\\ViT-L-14-TEXT-detail-improved-hiT-GmP-HF.safetensors",
+            "clip\\clip_l.safetensors",
+            "clip_g.safetensors",
+            "clip_g_hidream.safetensors",
+            "clip_l.safetensors",
+            "clip_l_hidream.safetensors",
+            "flux\\awq-int4-flux.1-t5xxl.safetensors",
+            "gemma-3-12b-it-bnb-4bit\\model-00001-of-00002.safetensors",
+            "gemma-3-12b-it-bnb-4bit\\model-00002-of-00002.safetensors",
+            "gemma_3_12B_int8_FIXED.safetensors",
+            "gemma_3_12B_it.safetensors",
+            "gemma_3_12B_it_fp4_mixed.safetensors",
+            "gemma_3_12B_it_fp8_e4m3fn.safetensors",
+            "gemma_3_12B_it_fp8_scaled.safetensors",
+            "gemma_3_12B_it_fpmixed.safetensors",
+            "gemma_3_12B_it_tokenizer.safetensors",
+            "hunyuanvideo15_latent_upsampler_1080p.safetensors",
+            "hy15_qwen25vl_llm_encoder_fp8_e4m3_lightx2v.safetensors",
+            "ltx-2-19b-dev-fp4_projections_only.safetensors",
+            "ltx-2-19b-embeddings_connector_bf16.safetensors",
+            "ltx-2-19b-embeddings_connector_distill_bf16.safetensors",
+            "open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors",
+            "open-clip-xlm-roberta-large-vit-huge-14_visual_fp32.safetensors",
+            "qwen\\Qwen2.5_3B_instruct_bf16.safetensors",
+            "qwen\\qwen_2.5_vl_7b_fp8_scaled.safetensors",
+            "qwen\\qwen_2.5_vl_fp16.safetensors",
+            "qwen_2.5_vl_fp16.safetensors",
+            "qwen_3_4b.safetensors",
+            "t5\\flan_t5_xxl_TE-only_FP8.safetensors",
+            "t5\\t5xxl_fp8_e4m3fn.safetensors",
+            "t5\\t5xxl_fp8_e4m3fn_scaled.safetensors",
+            "t5_base.safetensors",
+            "t5xxl_fp16.safetensors",
+            "t5xxl_fp8_e4m3fn.safetensors",
+            "umt5-xxl-enc-bf16.safetensors",
+            "umt5\\umt5-xxl-enc-fp8_e4m3fn.safetensors",
+            "umt5\\umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "wan\\wan2.2-umt5-xxl.safetensors"
+          ]
+        ],
+        "type": [
+          [
+            "stable_diffusion",
+            "stable_cascade",
+            "sd3",
+            "stable_audio",
+            "mochi",
+            "ltxv",
+            "pixart",
+            "cosmos",
+            "lumina2",
+            "wan",
+            "hidream",
+            "chroma",
+            "ace",
+            "omnigen2",
+            "qwen_image",
+            "hunyuan_image",
+            "flux2",
+            "ovis"
+          ]
+        ]
+      },
+      "optional": {
+        "device": [
+          [
+            "default",
+            "cpu"
+          ],
+          {
+            "advanced": true
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "clip_name",
+        "type"
+      ],
+      "optional": [
+        "device"
+      ]
+    },
+    "output": [
+      "CLIP"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "CLIP"
+    ],
+    "name": "CLIPLoader",
+    "display_name": "Load CLIP",
+    "description": "[Recipes]\n\nstable_diffusion: clip-l\nstable_cascade: clip-g\nsd3: t5 xxl/ clip-g / clip-l\nstable_audio: t5 base\nmochi: t5 xxl\ncosmos: old t5 xxl\nlumina2: gemma 2 2B\nwan: umt5 xxl\n hidream: llama-3.1 (Recommend) or t5\nomnigen2: qwen vl 2.5 3B",
+    "python_module": "nodes",
+    "category": "advanced/loaders",
+    "output_node": false
+  },
+  "UNETLoader": {
+    "input": {
+      "required": {
+        "unet_name": [
+          [
+            "MelBandRoformer_fp16.safetensors",
+            "MelBandRoformer_fp32.safetensors",
+            "Wan2.1\\wan2.1_i2v_480p_14B_fp8_scaled.safetensors",
+            "Z-Image-Turbo-fp8_scaled.safetensors",
+            "humo1.7b.pth",
+            "humo_1.7B_fp16.safetensors",
+            "humo_17B_fp8_e4m3fn.safetensors",
+            "hunyuanvideo1.5_480p_i2v_cfg_distilled_fp8_scaled.safetensors",
+            "hunyuanvideo1.5_720p_i2v_fp16.safetensors",
+            "hy15_720p_i2v_fp8_e4m3_lightx2v_comfyui.safetensors",
+            "ltx-2-19b-dev-fp4.safetensors",
+            "ltx-2-19b-dev-fp8_transformer_only.safetensors",
+            "ltx-2-19b-distilled-fp8_transformer_only.safetensors",
+            "qwen_image_2512_fp8_e4m3fn.safetensors",
+            "qwen_image_edit_2511_fp8_e4m3fn_scaled_lightning_comfyui.safetensors",
+            "svdq-int4_r128-qwen-image-edit-2509-lightningv2.0-4steps.safetensors",
+            "svdq-int4_r256-z-image-turbo.safetensors",
+            "svdq-int4_r32-flux.1-dev.safetensors",
+            "svdq-int4_r32-flux.1-kontext-dev.safetensors",
+            "svdq-int4_r32-flux.1-krea-dev.safetensors"
+          ]
+        ],
+        "weight_dtype": [
+          [
+            "default",
+            "fp8_e4m3fn",
+            "fp8_e4m3fn_fast",
+            "fp8_e5m2"
+          ]
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "unet_name",
+        "weight_dtype"
+      ]
+    },
+    "output": [
+      "MODEL"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "MODEL"
+    ],
+    "name": "UNETLoader",
+    "display_name": "Load Diffusion Model",
+    "description": "",
+    "python_module": "nodes",
+    "category": "advanced/loaders",
+    "output_node": false
+  }
+}
