@@ -13,8 +13,8 @@ Custom ComfyUI nodes for extending video scenes with synchronized audio generati
 ### LTXVSceneExtender
 All-in-one node for extending video with synchronized audio, image guides, and timestamped prompts.
 
-### LTXVTimelineEditor (Coming Soon)
-Visual timeline editor for creating scene scripts.
+### LTXVTimelineEditor
+Visual timeline editor for creating scene scripts, it outputs the files and text for use in the scene extender
 
 ## Installation
 
